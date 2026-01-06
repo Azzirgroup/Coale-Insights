@@ -1,0 +1,127 @@
+[
+  {
+    "doctype": "Custom Field",
+    "name": "Customer-custom_ml_intelligence_section",
+    "dt": "Customer",
+    "fieldname": "custom_ml_intelligence_section",
+    "fieldtype": "Section Break",
+    "label": "ML Intelligence",
+    "insert_after": "default_commission_rate",
+    "collapsible": 1,
+    "collapsible_depends_on": ""
+  },
+  {
+    "doctype": "Custom Field",
+    "name": "Customer-custom_clv_tier",
+    "dt": "Customer",
+    "fieldname": "custom_clv_tier",
+    "fieldtype": "Select",
+    "label": "CLV Tier",
+    "options": "\nBronze\nSilver\nGold\nPlatinum\nDiamond",
+    "insert_after": "custom_ml_intelligence_section",
+    "read_only": 1,
+    "in_list_view": 1,
+    "in_standard_filter": 1,
+    "description": "Customer Lifetime Value tier based on historical and predicted value"
+  },
+  {
+    "doctype": "Custom Field",
+    "name": "Customer-custom_clv_score",
+    "dt": "Customer",
+    "fieldname": "custom_clv_score",
+    "fieldtype": "Float",
+    "label": "CLV Score",
+    "insert_after": "custom_clv_tier",
+    "read_only": 1,
+    "precision": "2",
+    "description": "Normalized CLV score (0-100)"
+  },
+  {
+    "doctype": "Custom Field",
+    "name": "Customer-custom_column_break_clv",
+    "dt": "Customer",
+    "fieldname": "custom_column_break_clv",
+    "fieldtype": "Column Break",
+    "insert_after": "custom_clv_score"
+  },
+  {
+    "doctype": "Custom Field",
+    "name": "Customer-custom_churn_risk",
+    "dt": "Customer",
+    "fieldname": "custom_churn_risk",
+    "fieldtype": "Select",
+    "label": "Churn Risk",
+    "options": "\nLow\nMedium\nHigh\nCritical",
+    "insert_after": "custom_column_break_clv",
+    "read_only": 1,
+    "in_list_view": 1,
+    "in_standard_filter": 1,
+    "description": "Predicted churn risk based on behavioral indicators"
+  },
+  {
+    "doctype": "Custom Field",
+    "name": "Customer-custom_churn_score",
+    "dt": "Customer",
+    "fieldname": "custom_churn_score",
+    "fieldtype": "Float",
+    "label": "Churn Score",
+    "insert_after": "custom_churn_risk",
+    "read_only": 1,
+    "precision": "2",
+    "description": "Churn risk score (0-100, higher = more risk)"
+  },
+  {
+    "doctype": "Custom Field",
+    "name": "Customer-custom_health_section",
+    "dt": "Customer",
+    "fieldname": "custom_health_section",
+    "fieldtype": "Section Break",
+    "label": "",
+    "insert_after": "custom_churn_score"
+  },
+  {
+    "doctype": "Custom Field",
+    "name": "Customer-custom_health_score",
+    "dt": "Customer",
+    "fieldname": "custom_health_score",
+    "fieldtype": "Float",
+    "label": "Health Score",
+    "insert_after": "custom_health_section",
+    "read_only": 1,
+    "precision": "2",
+    "description": "Composite health score based on revenue, engagement, payment, longevity, and growth"
+  },
+  {
+    "doctype": "Custom Field",
+    "name": "Customer-custom_health_status",
+    "dt": "Customer",
+    "fieldname": "custom_health_status",
+    "fieldtype": "Select",
+    "label": "Health Status",
+    "options": "\nCritical\nAt Risk\nHealthy\nExcellent",
+    "insert_after": "custom_health_score",
+    "read_only": 1,
+    "in_list_view": 1,
+    "in_standard_filter": 1,
+    "description": "Overall customer health status"
+  },
+  {
+    "doctype": "Custom Field",
+    "name": "Customer-custom_column_break_health",
+    "dt": "Customer",
+    "fieldname": "custom_column_break_health",
+    "fieldtype": "Column Break",
+    "insert_after": "custom_health_status"
+  },
+  {
+    "doctype": "Custom Field",
+    "name": "Customer-custom_last_ml_update",
+    "dt": "Customer",
+    "fieldname": "custom_last_ml_update",
+    "fieldtype": "Datetime",
+    "label": "Last ML Update",
+    "insert_after": "custom_column_break_health",
+    "read_only": 1,
+    "description": "When customer intelligence scores were last updated"
+  }
+]

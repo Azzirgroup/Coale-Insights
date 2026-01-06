@@ -1,0 +1,153 @@
+{
+ "actions": [],
+ "autoname": "field:dashboard_type",
+ "creation": "2024-12-19 10:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "dashboard_type",
+  "is_enabled",
+  "column_break_1",
+  "model_preference",
+  "max_context_tokens",
+  "section_break_prompt",
+  "system_prompt",
+  "section_break_actions",
+  "quick_actions",
+  "section_break_routing",
+  "routing_keywords",
+  "context_fields",
+  "section_break_advanced",
+  "temperature",
+  "max_response_tokens",
+  "include_conversation_history"
+ ],
+ "fields": [
+  {
+   "fieldname": "dashboard_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Dashboard Type",
+   "options": "\nSales\nRisk\nInventory\nProcurement\nFinancial\nCustomer",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "is_enabled",
+   "fieldtype": "Check",
+   "label": "Is Enabled"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "auto",
+   "fieldname": "model_preference",
+   "fieldtype": "Select",
+   "label": "Model Preference",
+   "options": "auto\nmeta-llama/llama-3.1-8b-instruct:free\nmeta-llama/llama-3.1-70b-instruct\nanthropic/claude-3-haiku\nopenai/gpt-4o-mini"
+  },
+  {
+   "default": "2000",
+   "fieldname": "max_context_tokens",
+   "fieldtype": "Int",
+   "label": "Max Context Tokens"
+  },
+  {
+   "fieldname": "section_break_prompt",
+   "fieldtype": "Section Break",
+   "label": "System Prompt Configuration"
+  },
+  {
+   "fieldname": "system_prompt",
+   "fieldtype": "Long Text",
+   "label": "System Prompt",
+   "description": "Custom system prompt for this dashboard's AI agent. Use {context}, {dashboard_type}, {quick_actions} as placeholders."
+  },
+  {
+   "fieldname": "section_break_actions",
+   "fieldtype": "Section Break",
+   "label": "Quick Actions & Routing"
+  },
+  {
+   "fieldname": "quick_actions",
+   "fieldtype": "JSON",
+   "label": "Quick Actions",
+   "description": "Array of quick action buttons: [{label, prompt_template, icon}]"
+  },
+  {
+   "fieldname": "section_break_routing",
+   "fieldtype": "Section Break",
+   "label": "Query Routing"
+  },
+  {
+   "fieldname": "routing_keywords",
+   "fieldtype": "JSON",
+   "label": "Routing Keywords",
+   "description": "Keywords that identify queries belonging to this dashboard domain"
+  },
+  {
+   "fieldname": "context_fields",
+   "fieldtype": "JSON",
+   "label": "Context Fields",
+   "description": "Which ML data keys to include in context for this dashboard"
+  },
+  {
+   "fieldname": "section_break_advanced",
+   "fieldtype": "Section Break",
+   "label": "Advanced Settings"
+  },
+  {
+   "default": "0.7",
+   "fieldname": "temperature",
+   "fieldtype": "Float",
+   "label": "Temperature",
+   "description": "AI creativity level (0.0 = deterministic, 1.0 = creative)"
+  },
+  {
+   "default": "1500",
+   "fieldname": "max_response_tokens",
+   "fieldtype": "Int",
+   "label": "Max Response Tokens"
+  },
+  {
+   "default": "1",
+   "fieldname": "include_conversation_history",
+   "fieldtype": "Check",
+   "label": "Include Conversation History"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2024-12-19 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Insights",
+ "name": "Dashboard AI Agent Config",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "Insights User"
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

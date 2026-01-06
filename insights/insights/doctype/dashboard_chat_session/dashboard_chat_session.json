@@ -1,0 +1,132 @@
+{
+ "actions": [],
+ "autoname": "naming_series:",
+ "creation": "2024-12-19 10:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "dashboard_type",
+  "user",
+  "column_break_1",
+  "last_activity",
+  "is_active",
+  "section_break_messages",
+  "messages",
+  "section_break_context",
+  "context_snapshot",
+  "compressed_context"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "label": "Naming Series",
+   "options": "CHAT-.YYYY.-.#####",
+   "default": "CHAT-.YYYY.-.#####"
+  },
+  {
+   "fieldname": "dashboard_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Dashboard Type",
+   "options": "\nSales\nRisk\nInventory\nProcurement\nFinancial\nCustomer",
+   "reqd": 1
+  },
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "User",
+   "options": "User",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "last_activity",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Last Activity"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Is Active"
+  },
+  {
+   "fieldname": "section_break_messages",
+   "fieldtype": "Section Break",
+   "label": "Chat Messages"
+  },
+  {
+   "fieldname": "messages",
+   "fieldtype": "JSON",
+   "label": "Messages",
+   "description": "Array of message objects: [{role, content, timestamp, metadata}]"
+  },
+  {
+   "fieldname": "section_break_context",
+   "fieldtype": "Section Break",
+   "label": "Context Data"
+  },
+  {
+   "fieldname": "context_snapshot",
+   "fieldtype": "JSON",
+   "label": "Context Snapshot",
+   "description": "Full dashboard context at session start"
+  },
+  {
+   "fieldname": "compressed_context",
+   "fieldtype": "JSON",
+   "label": "Compressed Context",
+   "description": "Token-optimized context for AI prompts"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2024-12-19 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Insights",
+ "name": "Dashboard Chat Session",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "read": 1,
+   "role": "Insights User",
+   "write": 1
+  },
+  {
+   "create": 1,
+   "read": 1,
+   "role": "Insights Viewer",
+   "write": 1
+  }
+ ],
+ "sort_field": "last_activity",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}

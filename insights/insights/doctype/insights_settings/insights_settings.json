@@ -1,0 +1,280 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2022-06-30 17:59:52.181464",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "onboarding_section",
+  "enable_permissions",
+  "enable_data_store",
+  "apply_user_permissions",
+  "allowed_origins",
+  "max_records_to_sync",
+  "max_memory_usage",
+  "max_execution_time",
+  "integrations_section",
+  "telegram_api_token",
+  "ai_analytics_section",
+  "enable_ai_analytics",
+  "openrouter_api_key",
+  "ai_model_column",
+  "ai_model",
+  "ai_model_fallback",
+  "ai_schedule_section",
+  "refresh_schedule",
+  "last_ai_refresh",
+  "ai_quota_column",
+  "daily_ai_quota",
+  "ai_quota_used",
+  "query_section",
+  "fiscal_year_start",
+  "week_starts_on",
+  "tab_break_tvwi",
+  "setup_complete",
+  "onboarding_complete",
+  "allow_subquery",
+  "auto_execute_query",
+  "query_result_expiry",
+  "query_result_limit"
+ ],
+ "fields": [
+  {
+   "default": "0",
+   "fieldname": "setup_complete",
+   "fieldtype": "Check",
+   "label": "Setup Complete"
+  },
+  {
+   "fieldname": "onboarding_section",
+   "fieldtype": "Section Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "onboarding_complete",
+   "fieldtype": "Check",
+   "label": "Onboarding Complete"
+  },
+  {
+   "default": "0",
+   "fieldname": "auto_execute_query",
+   "fieldtype": "Check",
+   "label": "Auto Execute Query"
+  },
+  {
+   "default": "10",
+   "fieldname": "query_result_expiry",
+   "fieldtype": "Int",
+   "label": "Cache Query Results For (Minutes)"
+  },
+  {
+   "default": "0",
+   "fieldname": "allow_subquery",
+   "fieldtype": "Check",
+   "label": "Allow Subquery"
+  },
+  {
+   "default": "1000",
+   "fieldname": "query_result_limit",
+   "fieldtype": "Int",
+   "label": "Query Result Limit"
+  },
+  {
+   "default": "0",
+   "fieldname": "enable_permissions",
+   "fieldtype": "Check",
+   "label": "Enable Permissions"
+  },
+  {
+   "fieldname": "integrations_section",
+   "fieldtype": "Section Break",
+   "label": "Integrations"
+  },
+  {
+   "fieldname": "telegram_api_token",
+   "fieldtype": "Password",
+   "label": "Telegram API Token"
+  },
+  {
+   "fieldname": "ai_analytics_section",
+   "fieldtype": "Section Break",
+   "label": "AI Analytics"
+  },
+  {
+   "default": "0",
+   "fieldname": "enable_ai_analytics",
+   "fieldtype": "Check",
+   "label": "Enable AI Analytics"
+  },
+  {
+   "depends_on": "eval:doc.enable_ai_analytics",
+   "fieldname": "openrouter_api_key",
+   "fieldtype": "Password",
+   "label": "OpenRouter API Key",
+   "description": "Get your API key from https://openrouter.ai/keys"
+  },
+  {
+   "depends_on": "eval:doc.enable_ai_analytics",
+   "fieldname": "ai_model_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "meta-llama/llama-3.3-70b-instruct:free",
+   "depends_on": "eval:doc.enable_ai_analytics",
+   "fieldname": "ai_model",
+   "fieldtype": "Select",
+   "label": "Primary AI Model",
+   "options": "meta-llama/llama-3.3-70b-instruct:free\nopenai/gpt-oss-120b:free\ngoogle/gemini-2.0-flash-exp:free\nqwen/qwen3-235b-a22b:free\nmistralai/mistral-small-3.1-24b-instruct:free\nnousresearch/hermes-3-llama-3.1-405b:free",
+   "description": "Select primary AI model (free tier models from OpenRouter)"
+  },
+  {
+   "default": "google/gemini-2.0-flash-exp:free",
+   "depends_on": "eval:doc.enable_ai_analytics",
+   "fieldname": "ai_model_fallback",
+   "fieldtype": "Select",
+   "label": "Fallback AI Model",
+   "options": "meta-llama/llama-3.3-70b-instruct:free\nopenai/gpt-oss-120b:free\ngoogle/gemini-2.0-flash-exp:free\nqwen/qwen3-235b-a22b:free\nmistralai/mistral-small-3.1-24b-instruct:free\nnousresearch/hermes-3-llama-3.1-405b:free",
+   "description": "Select fallback AI model if primary fails"
+  },
+  {
+   "depends_on": "eval:doc.enable_ai_analytics",
+   "fieldname": "ai_schedule_section",
+   "fieldtype": "Section Break",
+   "label": "AI Refresh Schedule"
+  },
+  {
+   "default": "Daily",
+   "depends_on": "eval:doc.enable_ai_analytics",
+   "fieldname": "refresh_schedule",
+   "fieldtype": "Select",
+   "label": "Auto Refresh Schedule",
+   "options": "Disabled\nDaily\nWeekly\nMonthly"
+  },
+  {
+   "depends_on": "eval:doc.enable_ai_analytics",
+   "fieldname": "last_ai_refresh",
+   "fieldtype": "Datetime",
+   "label": "Last AI Refresh",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.enable_ai_analytics",
+   "fieldname": "ai_quota_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "100",
+   "depends_on": "eval:doc.enable_ai_analytics",
+   "fieldname": "daily_ai_quota",
+   "fieldtype": "Int",
+   "label": "Daily AI Request Quota"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.enable_ai_analytics",
+   "fieldname": "ai_quota_used",
+   "fieldtype": "Int",
+   "label": "Quota Used Today",
+   "read_only": 1
+  },
+  {
+   "fieldname": "query_section",
+   "fieldtype": "Section Break",
+   "label": "Query"
+  },
+  {
+   "fieldname": "fiscal_year_start",
+   "fieldtype": "Date",
+   "label": "Fiscal Year Start"
+  },
+  {
+   "description": "Comma seperated URLs to whitelist for embedding charts & dashboards",
+   "fieldname": "allowed_origins",
+   "fieldtype": "Data",
+   "label": "Allowed Origins"
+  },
+  {
+   "fieldname": "max_records_to_sync",
+   "fieldtype": "Int",
+   "label": "Max Records To Sync",
+   "non_negative": 1
+  },
+  {
+   "default": "Monday",
+   "fieldname": "week_starts_on",
+   "fieldtype": "Select",
+   "label": "Week Starts On",
+   "options": "Monday\nTuesday\nWednesday\nThursday\nFriday\nSaturday\nSunday"
+  },
+  {
+   "fieldname": "tab_break_tvwi",
+   "fieldtype": "Tab Break",
+   "label": "Legacy"
+  },
+  {
+   "fieldname": "max_memory_usage",
+   "fieldtype": "Int",
+   "label": "Max Memory Usage",
+   "non_negative": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "enable_data_store",
+   "fieldtype": "Check",
+   "label": "Enable Data Store"
+  },
+  {
+   "default": "0",
+   "fieldname": "apply_user_permissions",
+   "fieldtype": "Check",
+   "label": "Apply User Permissions"
+  },
+  {
+   "fieldname": "max_execution_time",
+   "fieldtype": "Int",
+   "label": "Max Execution Time (Seconds)"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2025-01-14 13:17:25.798141",
+ "modified_by": "Administrator",
+ "module": "Insights",
+ "name": "Insights Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "Insights Admin",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "Insights User",
+   "share": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
