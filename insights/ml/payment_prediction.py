@@ -13,6 +13,15 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
 from insights.ml.base import BaseMLModel
 
+# Optional ML dependencies
+try:
+    from sklearn.ensemble import RandomForestClassifier
+    from sklearn.model_selection import train_test_split
+    from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+    HAS_SKLEARN = True
+except ImportError:
+    HAS_SKLEARN = False
+
 
 class PaymentPrediction(BaseMLModel):
     """
@@ -193,6 +202,12 @@ class PaymentPrediction(BaseMLModel):
             'credit_utilization', 'is_large_invoice', 'total_invoices',
             'avg_invoice_value'
         ]
+        
+        if not HAS_SKLEARN:
+            return {
+                "status": "error",
+                "message": "scikit-learn not installed. Run: pip install insights[ml]"
+            }
         
         # Create target: is_late (1 if paid after due date)
         paid_df['credit_days'] = paid_df.apply(

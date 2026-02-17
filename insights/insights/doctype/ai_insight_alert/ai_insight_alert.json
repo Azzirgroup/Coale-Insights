@@ -1,0 +1,150 @@
+{
+ "actions": [],
+ "autoname": "naming_series:",
+ "creation": "2026-02-14 10:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "alert_name",
+  "module",
+  "metric",
+  "column_break_1",
+  "condition",
+  "threshold_value",
+  "is_enabled",
+  "section_break_notify",
+  "notify_via_email",
+  "notify_users",
+  "section_break_status",
+  "last_triggered",
+  "trigger_count",
+  "last_value"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "label": "Naming Series",
+   "options": "AIAL-.YYYY.-.#####",
+   "default": "AIAL-.YYYY.-.#####"
+  },
+  {
+   "fieldname": "alert_name",
+   "fieldtype": "Data",
+   "label": "Alert Name",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "module",
+   "fieldtype": "Select",
+   "label": "Module",
+   "options": "\naccounts\nselling\nbuying\nstock\nmanufacturing\ncrm\nhr",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "metric",
+   "fieldtype": "Data",
+   "label": "Metric",
+   "reqd": 1,
+   "in_list_view": 1,
+   "description": "e.g. outstanding_amount, low_stock_count, open_leads"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "condition",
+   "fieldtype": "Select",
+   "label": "Condition",
+   "options": "\ngreater_than\nless_than\nequals\ngreater_than_or_equal\nless_than_or_equal",
+   "reqd": 1
+  },
+  {
+   "fieldname": "threshold_value",
+   "fieldtype": "Float",
+   "label": "Threshold Value",
+   "reqd": 1
+  },
+  {
+   "fieldname": "is_enabled",
+   "fieldtype": "Check",
+   "label": "Enabled",
+   "default": "1",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "section_break_notify",
+   "fieldtype": "Section Break",
+   "label": "Notification"
+  },
+  {
+   "fieldname": "notify_via_email",
+   "fieldtype": "Check",
+   "label": "Notify via Email",
+   "default": "1"
+  },
+  {
+   "fieldname": "notify_users",
+   "fieldtype": "Small Text",
+   "label": "Notify Users",
+   "description": "Comma-separated email addresses"
+  },
+  {
+   "fieldname": "section_break_status",
+   "fieldtype": "Section Break",
+   "label": "Status"
+  },
+  {
+   "fieldname": "last_triggered",
+   "fieldtype": "Datetime",
+   "label": "Last Triggered",
+   "read_only": 1
+  },
+  {
+   "fieldname": "trigger_count",
+   "fieldtype": "Int",
+   "label": "Trigger Count",
+   "default": "0",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_value",
+   "fieldtype": "Float",
+   "label": "Last Measured Value",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-02-14 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Insights",
+ "name": "AI Insight Alert",
+ "naming_rule": "By Naming Series",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "read": 1,
+   "write": 1,
+   "role": "System Manager"
+  },
+  {
+   "read": 1,
+   "role": "Insights User"
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "alert_name",
+ "track_changes": 0
+}

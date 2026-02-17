@@ -3,6 +3,7 @@ from ibis import _
 
 from insights.decorators import insights_whitelist
 from insights.utils import DocShare
+from insights.api.response import success, error
 
 
 @insights_whitelist()
@@ -22,46 +23,56 @@ def get_workbooks(search_term=None, limit=100):
         ],
         limit=limit,
     )
-    # FIX: figure out how to use frappe.qb while respecting permissions
-    # TODO: use frappe.qb to get the view count
+
+    if not workbooks:
+        return workbooks
+
     workbook_names = [workbook["name"] for workbook in workbooks]
-    workbook_views = frappe.get_all(
-        "View Log",
+
+    # Batch fetch view counts — single SQL with GROUP BY instead of Python filtering
+    view_counts = {}
+    if workbook_names:
+        view_count_rows = frappe.db.sql("""
+            SELECT reference_name, COUNT(*) as cnt
+            FROM `tabView Log`
+            WHERE reference_doctype = 'Insights Workbook'
+            AND reference_name IN ({placeholders})
+            GROUP BY reference_name
+        """.format(placeholders=", ".join(["%s"] * len(workbook_names))),
+            tuple(workbook_names), as_dict=True
+        )
+        for row in view_count_rows:
+            view_counts[row.reference_name] = row.cnt
+
+    # Batch fetch all DocShare records for these workbooks — single query
+    all_shares = frappe.get_all(
+        "DocShare",
         filters={
-            "reference_doctype": "Insights Workbook",
-            "reference_name": ["in", workbook_names],
+            "share_doctype": "Insights Workbook",
+            "share_name": ["in", workbook_names],
+            "read": 1,
         },
-        fields=["reference_name", "name"],
+        fields=["share_name", "user", "everyone"],
     )
-    for workbook in workbooks:
-        views = [view for view in workbook_views if str(view["reference_name"]) == str(workbook["name"])]
-        workbook["views"] = len(views)
+
+    # Build share lookup maps
+    org_access_set = set()
+    shares_by_workbook = {}
+    for share in all_shares:
+        if share.everyone:
+            org_access_set.add(share.share_name)
+        else:
+            shares_by_workbook.setdefault(share.share_name, []).append(share.user)
 
     for workbook in workbooks:
-        organization_has_access = frappe.db.exists(
-            "DocShare",
-            {
-                "share_doctype": "Insights Workbook",
-                "share_name": workbook["name"],
-                "everyone": 1,
-                "read": 1,
-            },
-        )
-        if organization_has_access:
+        workbook["views"] = view_counts.get(workbook["name"], 0)
+
+        if workbook["name"] in org_access_set:
             workbook["shared_with_organization"] = True
-            continue
-
-        shared_with = frappe.get_all(
-            "DocShare",
-            filters={
-                "share_doctype": "Insights Workbook",
-                "share_name": workbook["name"],
-                "user": ["!=", workbook["owner"]],
-                "read": 1,
-            },
-            pluck="user",
-        )
-        workbook["shared_with"] = shared_with
+        else:
+            # Filter out owner from shared_with list
+            shared_users = shares_by_workbook.get(workbook["name"], [])
+            workbook["shared_with"] = [u for u in shared_users if u != workbook["owner"]]
 
     return workbooks
 
@@ -120,10 +131,10 @@ def get_share_permissions(workbook_name):
     if public_docshare:
         organization_access = "edit" if public_docshare["write"] else "view"
 
-    return {
+    return success({
         "user_permissions": user_permissions,
         "organization_access": organization_access,
-    }
+    })
 
 
 @insights_whitelist()

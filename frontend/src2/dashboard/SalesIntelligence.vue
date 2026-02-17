@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { Breadcrumbs, call } from 'frappe-ui'
+import { Breadcrumbs } from 'frappe-ui'
+import { apiCall } from '../helpers/api'
 import { 
   RefreshCcw, Loader2, TrendingUp, TrendingDown, DollarSign, 
   CreditCard, Banknote, Users, Package, BarChart3, PieChart, 
@@ -8,7 +9,7 @@ import {
 } from 'lucide-vue-next'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { createToast } from '../../src/utils/toasts'
+import { createToast } from '../helpers/toasts'
 import DashboardChatButton from '../components/DashboardChatButton.vue'
 
 // Router for AI chat navigation
@@ -62,20 +63,17 @@ async function loadData(refresh = false) {
   error.value = null
   
   try {
-    const response = await call('insights.api.ml.sales_intelligence', {
-      refresh: refresh
+    const result = await apiCall('insights.api.ml.sales_intelligence', {
+      refresh: refresh,
+      date_filter: dateRange.value
     })
-    
-    if (response?.status === 'success') {
-      data.value = response
-      createToast({
-        title: 'Data Loaded',
-        message: `Analyzed ${response.summary?.total_transactions || 0} transactions`,
-        variant: 'success'
-      })
-    } else {
-      error.value = response?.message || 'Failed to load data'
-    }
+
+    data.value = result
+    createToast({
+      title: 'Data Loaded',
+      message: `Analyzed ${result?.summary?.total_transactions || 0} transactions`,
+      variant: 'success'
+    })
   } catch (e: any) {
     error.value = e.message || 'Failed to load sales intelligence'
   } finally {
@@ -127,27 +125,18 @@ async function trainForecasts(modelType: string) {
   trainingStatus.value = ''
   
   try {
-    const response = await call('insights.api.ml.train_forecast_models', {
+    const result = await apiCall('insights.api.ml.train_forecast_models', {
       model_type: modelType
     })
-    
-    if (response?.status === 'success') {
-      trainingStatus.value = `✓ Successfully trained ${modelType} forecast model(s)`
-      createToast({
-        title: 'Training Complete',
-        message: response.message,
-        variant: 'success'
-      })
-      // Reload main data to get updated forecasts
-      await loadData(true)
-    } else {
-      trainingStatus.value = `✗ Training failed: ${response?.message || 'Unknown error'}`
-      createToast({
-        title: 'Training Failed',
-        message: response?.message || 'Unknown error',
-        variant: 'error'
-      })
-    }
+
+    trainingStatus.value = `✓ Successfully trained ${modelType} forecast model(s)`
+    createToast({
+      title: 'Training Complete',
+      message: result?.message || 'Training complete',
+      variant: 'success'
+    })
+    // Reload main data to get updated forecasts
+    await loadData(true)
   } catch (e: any) {
     trainingStatus.value = `✗ Training error: ${e.message}`
     createToast({
@@ -165,15 +154,13 @@ async function loadDimensionalForecast() {
   isLoadingDimensional.value = true
   
   try {
-    const response = await call('insights.api.ml.get_historical_and_forecast_by_dimension', {
+    const result = await apiCall('insights.api.ml.get_historical_and_forecast_by_dimension', {
       dimension: 'both'
     })
-    
-    if (response?.status === 'success') {
-      dimensionalForecast.value = response
-      productGroupPage.value = 0
-      territoryPage.value = 0
-    }
+
+    dimensionalForecast.value = result
+    productGroupPage.value = 0
+    territoryPage.value = 0
   } catch (e: any) {
     createToast({
       title: 'Error',
@@ -500,6 +487,12 @@ function isPeriodForecast(period: string): boolean {
 
 // Load on mount
 onMounted(() => {
+  loadData()
+  loadDimensionalForecast()
+})
+
+// Watch for date filter changes
+watch(dateRange, () => {
   loadData()
   loadDimensionalForecast()
 })

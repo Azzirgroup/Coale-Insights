@@ -1,14 +1,24 @@
 <script setup lang="ts">
-import { Breadcrumbs, call } from 'frappe-ui'
+import { Breadcrumbs, FormControl } from 'frappe-ui'
+import { apiCall } from '../helpers/api'
 import { 
   RefreshCcw, Loader2, TrendingUp, AlertTriangle, Users, DollarSign, 
   Target, Heart, MapPin, BarChart3, PieChart, Activity, Zap, 
-  UserCheck, UserX, ChevronRight, ArrowUpRight, ArrowDownRight
+  UserCheck, UserX, ChevronRight, ArrowUpRight, ArrowDownRight,
+  Search, Filter, Star
 } from 'lucide-vue-next'
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { createToast } from '../../src/utils/toasts'
+import { createToast } from '../helpers/toasts'
 import DashboardChatButton from '../components/DashboardChatButton.vue'
+import IntelligenceDateFilter from '../components/IntelligenceDateFilter.vue'
+import {
+  formatCurrency, formatNumber, formatPercent,
+  getTierColor, getTierIcon, getRiskColor, getHealthColor, getHealthBgColor,
+  getRfmColor, getPriorityColor,
+  tierFilterOptions, rfmSegmentFilterOptions, riskFilterOptions,
+  getRecentCustomers, addRecentCustomer,
+} from '../utils/customerUtils'
 
 const router = useRouter()
 
@@ -34,10 +44,15 @@ const tabs = [
   { id: 'patterns', label: 'Patterns', icon: Activity },
 ]
 
-// Customer filter
+// Date filter
+const dateFilter = ref('12m')
+
+// Customer filters
 const customerFilter = ref('')
 const tierFilter = ref('')
 const riskFilter = ref('')
+const rfmFilter = ref('')
+const recentCustomerIds = ref<string[]>(getRecentCustomers())
 
 // Load customer intelligence data
 async function loadData(refresh = false) {
@@ -49,27 +64,26 @@ async function loadData(refresh = false) {
   error.value = null
   
   try {
-    const response = await call('insights.api.ml.customer_intelligence', {
-      refresh: refresh
+    const result = await apiCall('insights.api.ml.customer_intelligence', {
+      refresh: refresh,
+      date_filter: dateFilter.value
     })
-    
-    if (response?.status === 'success') {
-      data.value = response
-      createToast({
-        title: 'Data Loaded',
-        message: `Analyzed ${response.summary?.total_customers || 0} customers`,
-        variant: 'success'
-      })
-    } else if (response?.status === 'queued') {
+
+    if (result?.status === 'queued') {
       createToast({
         title: 'Processing',
-        message: response.message || 'Analysis queued for processing',
+        message: result.message || 'Analysis queued for processing',
         variant: 'info'
       })
       // Poll for results
       setTimeout(() => checkJobStatus(), 5000)
     } else {
-      error.value = response?.message || 'Failed to load data'
+      data.value = result
+      createToast({
+        title: 'Data Loaded',
+        message: `Analyzed ${result?.summary?.total_customers || 0} customers`,
+        variant: 'success'
+      })
     }
   } catch (e: any) {
     error.value = e.message || 'Failed to load customer intelligence'
@@ -81,7 +95,7 @@ async function loadData(refresh = false) {
 
 async function checkJobStatus() {
   try {
-    const status = await call('insights.api.ml.customer_intelligence_status')
+    const status = await apiCall('insights.api.ml.customer_intelligence_status')
     if (status?.status === 'completed') {
       data.value = status.result
       createToast({
@@ -104,12 +118,9 @@ async function loadCrossSellData() {
   
   isLoadingCrossSell.value = true
   try {
-    const response = await call('insights.api.ml.cross_sell_opportunities', {
+    crossSellData.value = await apiCall('insights.api.ml.cross_sell_opportunities', {
       tier_filter: 'Diamond,Platinum'
     })
-    if (response?.status === 'success') {
-      crossSellData.value = response
-    }
   } catch (e: any) {
     console.error('Failed to load cross-sell data:', e)
   } finally {
@@ -123,12 +134,9 @@ async function loadPurchasePatterns() {
   
   isLoadingPatterns.value = true
   try {
-    const response = await call('insights.api.ml.purchase_patterns', {
+    purchasePatternsData.value = await apiCall('insights.api.ml.purchase_patterns', {
       top_percentile: 20
     })
-    if (response?.status === 'success') {
-      purchasePatternsData.value = response
-    }
   } catch (e: any) {
     console.error('Failed to load purchase patterns:', e)
   } finally {
@@ -136,8 +144,9 @@ async function loadPurchasePatterns() {
   }
 }
 
-// Navigate to customer detail
+// Navigate to customer detail & track recent
 function viewCustomerDetail(customerId: string) {
+  recentCustomerIds.value = addRecentCustomer(customerId)
   router.push(`/customer/${customerId}`)
 }
 
@@ -158,7 +167,9 @@ const customers = computed(() => {
     const search = customerFilter.value.toLowerCase()
     list = list.filter((c: any) => 
       c.customer_name?.toLowerCase().includes(search) ||
-      c.customer_id?.toLowerCase().includes(search)
+      c.customer_id?.toLowerCase().includes(search) ||
+      c.territory?.toLowerCase().includes(search) ||
+      c.rfm_segment?.toLowerCase().includes(search)
     )
   }
   
@@ -170,7 +181,19 @@ const customers = computed(() => {
     list = list.filter((c: any) => c.churn_risk === riskFilter.value)
   }
   
+  if (rfmFilter.value) {
+    list = list.filter((c: any) => c.rfm_segment === rfmFilter.value)
+  }
+  
   return list
+})
+
+// Recent customers with details
+const recentCustomerDetails = computed(() => {
+  const allCustomers = data.value?.customers || []
+  return recentCustomerIds.value
+    .map((id: string) => allCustomers.find((c: any) => c.customer_id === id))
+    .filter(Boolean)
 })
 
 const atRiskCustomers = computed(() => data.value?.at_risk_customers || [])
@@ -180,67 +203,7 @@ const paretoAnalysis = computed(() => data.value?.pareto_analysis || {})
 const cohortAnalysis = computed(() => data.value?.cohort_analysis || {})
 const nextActions = computed(() => data.value?.next_best_actions || [])
 
-// Format helpers
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat('en-KE', {
-    style: 'currency',
-    currency: 'KES',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0
-  }).format(value || 0)
-}
-
-function formatNumber(value: number, decimals = 0) {
-  return new Intl.NumberFormat('en-KE', {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals
-  }).format(value || 0)
-}
-
-function formatPercent(value: number) {
-  return `${(value || 0).toFixed(1)}%`
-}
-
-// Tier colors
-function getTierColor(tier: string) {
-  const colors: Record<string, string> = {
-    'Bronze': 'bg-amber-600',
-    'Silver': 'bg-gray-400',
-    'Gold': 'bg-yellow-500',
-    'Platinum': 'bg-blue-400',
-    'Diamond': 'bg-purple-500'
-  }
-  return colors[tier] || 'bg-gray-300'
-}
-
-function getRiskColor(risk: string) {
-  const colors: Record<string, string> = {
-    'Low': 'text-green-600 bg-green-100',
-    'Medium': 'text-yellow-600 bg-yellow-100',
-    'High': 'text-orange-600 bg-orange-100',
-    'Critical': 'text-red-600 bg-red-100'
-  }
-  return colors[risk] || 'text-gray-600 bg-gray-100'
-}
-
-function getHealthColor(status: string) {
-  const colors: Record<string, string> = {
-    'Excellent': 'text-green-600',
-    'Healthy': 'text-blue-600',
-    'At Risk': 'text-orange-600',
-    'Critical': 'text-red-600'
-  }
-  return colors[status] || 'text-gray-600'
-}
-
-function getPriorityColor(priority: string) {
-  const colors: Record<string, string> = {
-    'High': 'bg-red-100 text-red-700 border-red-200',
-    'Medium': 'bg-yellow-100 text-yellow-700 border-yellow-200',
-    'Low': 'bg-green-100 text-green-700 border-green-200'
-  }
-  return colors[priority] || 'bg-gray-100 text-gray-700 border-gray-200'
-}
+// Format helpers imported from ../utils/customerUtils
 
 // Chat context for AI insights
 const chatContext = computed(() => ({
@@ -275,8 +238,14 @@ function handleDashboardRedirect(target: string) {
   }
 }
 
+// Reload when date filter changes
+watch(dateFilter, () => loadData())
+
 // Load data on mount
-onMounted(() => loadData())
+onMounted(() => {
+  recentCustomerIds.value = getRecentCustomers()
+  loadData()
+})
 </script>
 
 <template>
@@ -292,15 +261,18 @@ onMounted(() => loadData())
         />
       </div>
       
-      <button
-        @click="loadData(true)"
-        :disabled="isRefreshing"
-        class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
-      >
-        <RefreshCcw v-if="!isRefreshing" class="w-4 h-4" />
-        <Loader2 v-else class="w-4 h-4 animate-spin" />
-        {{ isRefreshing ? 'Refreshing...' : 'Refresh Analysis' }}
-      </button>
+      <div class="flex items-center gap-3">
+        <IntelligenceDateFilter v-model="dateFilter" />
+        <button
+          @click="loadData(true)"
+          :disabled="isRefreshing"
+          class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+        >
+          <RefreshCcw v-if="!isRefreshing" class="w-4 h-4" />
+          <Loader2 v-else class="w-4 h-4 animate-spin" />
+          {{ isRefreshing ? 'Refreshing...' : 'Refresh Analysis' }}
+        </button>
+      </div>
     </div>
     
     <!-- Loading State -->
@@ -494,37 +466,66 @@ onMounted(() => loadData())
           </div>
         </div>
         
-        <!-- Customers Tab -->
+        <!-- Customers Tab (merged Customer 360° search) -->
         <div v-if="activeTab === 'customers'" class="space-y-4">
-          <!-- Filters -->
+          <!-- Search & Filters -->
           <div class="flex flex-wrap gap-4 p-4 bg-white rounded-xl">
-            <input
-              v-model="customerFilter"
-              type="text"
-              placeholder="Search customers..."
-              class="flex-1 min-w-[200px] px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-            />
-            <select
-              v-model="tierFilter"
-              class="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">All Tiers</option>
-              <option value="Diamond">Diamond</option>
-              <option value="Platinum">Platinum</option>
-              <option value="Gold">Gold</option>
-              <option value="Silver">Silver</option>
-              <option value="Bronze">Bronze</option>
-            </select>
-            <select
-              v-model="riskFilter"
-              class="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">All Risk Levels</option>
-              <option value="Critical">Critical</option>
-              <option value="High">High</option>
-              <option value="Medium">Medium</option>
-              <option value="Low">Low</option>
-            </select>
+            <div class="relative flex-1 min-w-[200px]">
+              <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                v-model="customerFilter"
+                type="text"
+                placeholder="Search by name, ID, or territory..."
+                class="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div class="flex items-center gap-2">
+              <Filter class="w-4 h-4 text-gray-400" />
+              <select
+                v-model="tierFilter"
+                class="px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option v-for="opt in tierFilterOptions" :key="opt.value" :value="opt.value">
+                  {{ opt.label }}
+                </option>
+              </select>
+              <select
+                v-model="rfmFilter"
+                class="px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option v-for="opt in rfmSegmentFilterOptions" :key="opt.value" :value="opt.value">
+                  {{ opt.label }}
+                </option>
+              </select>
+              <select
+                v-model="riskFilter"
+                class="px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option v-for="opt in riskFilterOptions" :key="opt.value" :value="opt.value">
+                  {{ opt.label }}
+                </option>
+              </select>
+            </div>
+            <span class="self-center text-sm text-gray-500">
+              {{ customers.length }} of {{ data?.customers?.length || 0 }} customers
+            </span>
+          </div>
+          
+          <!-- Recent Customers -->
+          <div v-if="recentCustomerDetails.length > 0 && !customerFilter && !tierFilter && !riskFilter && !rfmFilter" class="flex items-center gap-3 px-1">
+            <Star class="w-4 h-4 text-yellow-500 flex-shrink-0" />
+            <span class="text-sm font-medium text-gray-600">Recent:</span>
+            <div class="flex gap-2 flex-wrap">
+              <button
+                v-for="rc in recentCustomerDetails"
+                :key="rc.customer_id"
+                @click="viewCustomerDetail(rc.customer_id)"
+                class="flex items-center gap-1.5 px-3 py-1 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors text-sm text-blue-700"
+              >
+                <span>{{ getTierIcon(rc.clv_tier) }}</span>
+                {{ rc.customer_name }}
+              </button>
+            </div>
           </div>
           
           <!-- Customer Table -->
@@ -533,27 +534,36 @@ onMounted(() => loadData())
               <thead class="bg-gray-50">
                 <tr>
                   <th class="px-4 py-3 text-xs font-medium text-left text-gray-500 uppercase">Customer</th>
+                  <th class="px-4 py-3 text-xs font-medium text-left text-gray-500 uppercase">RFM Segment</th>
                   <th class="px-4 py-3 text-xs font-medium text-left text-gray-500 uppercase">CLV Tier</th>
                   <th class="px-4 py-3 text-xs font-medium text-right text-gray-500 uppercase">Total CLV</th>
                   <th class="px-4 py-3 text-xs font-medium text-center text-gray-500 uppercase">Health</th>
                   <th class="px-4 py-3 text-xs font-medium text-center text-gray-500 uppercase">Churn Risk</th>
                   <th class="px-4 py-3 text-xs font-medium text-right text-gray-500 uppercase">Orders</th>
                   <th class="px-4 py-3 text-xs font-medium text-right text-gray-500 uppercase">Recency</th>
-                  <th class="px-4 py-3 text-xs font-medium text-center text-gray-500 uppercase">Action</th>
+                  <th class="px-4 py-3 text-xs font-medium text-center text-gray-500 uppercase"></th>
                 </tr>
               </thead>
               <tbody class="divide-y">
                 <tr 
-                  v-for="customer in customers.slice(0, 50)" 
+                  v-for="customer in customers.slice(0, 100)" 
                   :key="customer.customer_id" 
                   class="hover:bg-blue-50 cursor-pointer transition-colors"
                   @click="viewCustomerDetail(customer.customer_id)"
                 >
                   <td class="px-4 py-3">
-                    <div>
-                      <p class="font-medium text-gray-900">{{ customer.customer_name }}</p>
-                      <p class="text-sm text-gray-500">{{ customer.territory || 'No territory' }}</p>
+                    <div class="flex items-center gap-2">
+                      <span class="text-lg">{{ getTierIcon(customer.clv_tier) }}</span>
+                      <div>
+                        <p class="font-medium text-gray-900">{{ customer.customer_name }}</p>
+                        <p class="text-sm text-gray-500">{{ customer.territory || 'No territory' }}</p>
+                      </div>
                     </div>
+                  </td>
+                  <td class="px-4 py-3">
+                    <span :class="['px-2 py-0.5 text-xs font-medium rounded', getRfmColor(customer.rfm_segment || '')]">
+                      {{ customer.rfm_segment || '-' }}
+                    </span>
                   </td>
                   <td class="px-4 py-3">
                     <span :class="['inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded-full text-white', getTierColor(customer.clv_tier)]">
@@ -561,11 +571,11 @@ onMounted(() => loadData())
                     </span>
                   </td>
                   <td class="px-4 py-3 text-right font-medium text-gray-900">
-                    {{ formatCurrency(customer.total_clv) }}
+                    {{ formatCurrency(customer.total_clv || customer.historical_clv) }}
                   </td>
                   <td class="px-4 py-3 text-center">
                     <span :class="['font-medium', getHealthColor(customer.health_status)]">
-                      {{ Math.round(customer.health_score) }}
+                      {{ Math.round(customer.health_score || 0) }}
                     </span>
                   </td>
                   <td class="px-4 py-3 text-center">
@@ -577,7 +587,7 @@ onMounted(() => loadData())
                     {{ customer.order_count }}
                   </td>
                   <td class="px-4 py-3 text-right text-gray-500">
-                    {{ Math.round(customer.recency_days) }}d
+                    {{ Math.round(customer.recency_days || 0) }}d
                   </td>
                   <td class="px-4 py-3 text-center">
                     <ChevronRight class="w-4 h-4 text-gray-400 inline" />
@@ -585,8 +595,8 @@ onMounted(() => loadData())
                 </tr>
               </tbody>
             </table>
-            <div v-if="customers.length > 50" class="px-4 py-3 text-sm text-center text-gray-500 bg-gray-50">
-              Showing 50 of {{ customers.length }} customers
+            <div v-if="customers.length > 100" class="px-4 py-3 text-sm text-center text-gray-500 bg-gray-50">
+              Showing 100 of {{ customers.length }} customers
             </div>
           </div>
         </div>

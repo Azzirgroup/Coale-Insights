@@ -51,15 +51,20 @@ import {
 	Database,
 	DatabaseZap,
 	DollarSign,
+	Factory,
+	LayoutDashboard,
 	LayoutGrid,
+	Leaf,
+	Megaphone,
 	Package,
 	PanelRightOpen,
+	Presentation,
 	SettingsIcon,
 	ShieldAlert,
 	ShoppingCart,
 	Target,
 	TrendingUp,
-	UserCircle,
+	UserCog,
 	Users,
 } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
@@ -90,11 +95,6 @@ const links = ref([
 		label: 'Customer Intelligence',
 		icon: Users,
 		to: 'CustomerIntelligence',
-	},
-	{
-		label: 'Customer 360°',
-		icon: UserCircle,
-		to: 'Customer360',
 	},
 	{
 		label: 'Sales Intelligence',
@@ -130,6 +130,36 @@ const links = ref([
 		label: 'Strategic Finance',
 		icon: Target,
 		to: 'StrategicFinanceIntelligence',
+	},
+	{
+		label: 'Manufacturing',
+		icon: Factory,
+		to: 'ManufacturingIntelligence',
+	},
+	{
+		label: 'Marketing/CRM',
+		icon: Megaphone,
+		to: 'MarketingCRMIntelligence',
+	},
+	{
+		label: 'HR Intelligence',
+		icon: UserCog,
+		to: 'HRIntelligence',
+	},
+	{
+		label: 'ESG & Sustainability',
+		icon: Leaf,
+		to: 'ESGIntelligence',
+	},
+	{
+		label: 'Executive Dashboard',
+		icon: LayoutDashboard,
+		to: 'ExecutiveDashboard',
+	},
+	{
+		label: 'Board Presentations',
+		icon: Presentation,
+		to: 'BoardPresentationMode',
 	},
 	{
 		label: 'Workbooks',

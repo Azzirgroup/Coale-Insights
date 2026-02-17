@@ -215,6 +215,7 @@
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { call } from 'frappe-ui'
+import { apiCall } from '../helpers/api'
 import { marked } from 'marked'
 import { 
   MessageCircle, X, Send, Sparkles, Plus, History,
@@ -224,7 +225,7 @@ import { createToast, createInfoToast } from '../helpers/toasts'
 
 // Props
 const props = defineProps<{
-  dashboardType: 'Sales' | 'Risk' | 'Inventory' | 'Procurement' | 'Financial' | 'Customer' | 'Tax'
+  dashboardType: 'Sales' | 'Risk' | 'Inventory' | 'Procurement' | 'Financial' | 'Customer' | 'Tax' | 'HR' | 'Marketing' | 'Manufacturing' | 'ESG'
   dashboardContext: Record<string, any>
 }>()
 

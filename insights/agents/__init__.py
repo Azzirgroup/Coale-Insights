@@ -267,62 +267,79 @@ class BaseIntelligenceAgent(ABC):
             }
         
         try:
-            result = client._make_request(
-                messages=messages,
-                model=model or client.primary_model,
-                temperature=temperature
-            )
-            
-            if result and "choices" in result:
-                response_text = result["choices"][0]["message"]["content"]
-                client.increment_quota()
-                
-                return {
-                    "success": True,
-                    "response": response_text,
-                    "model_used": model or client.primary_model,
-                    "dashboard_type": self.dashboard_type,
-                    "session_id": session_id,
-                    "timestamp": now_datetime().isoformat()
-                }
-            else:
-                # Try fallback model
+            import time as _time
+            _start = _time.time()
+            _last_error = None
+            _rl_count = 0
+
+            # Build list of models to try: preferred model first, then fallback, then remaining free models
+            models_to_try = []
+            preferred = model or client.primary_model
+            models_to_try.append(preferred)
+            if client.fallback_model and client.fallback_model != preferred:
+                models_to_try.append(client.fallback_model)
+            for m in client.FREE_MODELS:
+                if m not in models_to_try:
+                    models_to_try.append(m)
+
+            for try_model in models_to_try:
                 result = client._make_request(
                     messages=messages,
-                    model=client.fallback_model,
+                    model=try_model,
                     temperature=temperature
                 )
                 
                 if result and "choices" in result:
                     response_text = result["choices"][0]["message"]["content"]
                     client.increment_quota()
+                    _elapsed = round(_time.time() - _start, 2)
+                    _tokens = result.get("usage", {}).get("total_tokens")
                     
                     return {
                         "success": True,
                         "response": response_text,
-                        "model_used": client.fallback_model,
+                        "model_used": try_model,
                         "dashboard_type": self.dashboard_type,
                         "session_id": session_id,
-                        "timestamp": now_datetime().isoformat()
+                        "timestamp": now_datetime().isoformat(),
+                        "processing_time": _elapsed,
+                        "tokens_used": _tokens,
                     }
-                
-                # Both primary and fallback models failed
-                _safe_log_error(
-                    f"AI models failed. Primary: {model or client.primary_model}, Fallback: {client.fallback_model}",
-                    "AI Model Failure"
-                )
-                return {
-                    "success": False,
-                    "error": "AI models are temporarily unavailable. Please try again in a few moments.",
-                    "dashboard_type": self.dashboard_type,
-                    "session_id": session_id
-                }
+                else:
+                    # Capture error from this attempt
+                    if isinstance(result, dict):
+                        _last_error = result.get("request_error", _last_error)
+                        if result.get("rate_limited"):
+                            _rl_count += 1
+                            if _rl_count >= 3:
+                                return {
+                                    "success": False,
+                                    "error": "All free AI models are currently rate-limited. Please wait a few minutes and try again.",
+                                    "dashboard_type": self.dashboard_type,
+                                    "session_id": session_id
+                                }
+                        else:
+                            _rl_count = 0
+            
+            # All models failed
+            tried_names = ", ".join(models_to_try[:3])
+            _safe_log_error(
+                f"All AI models failed ({len(models_to_try)} tried). Models: {tried_names}...",
+                "AI Model Failure"
+            )
+            error_detail = _last_error or "AI models are temporarily unavailable."
+            return {
+                "success": False,
+                "error": f"{error_detail} (tried {len(models_to_try)} models)",
+                "dashboard_type": self.dashboard_type,
+                "session_id": session_id
+            }
                 
         except Exception as e:
             _safe_log_error(f"Agent error: {str(e)[:300]}", "Agent Error")
             return {
                 "success": False,
-                "error": f"An error occurred while processing your request.",
+                "error": f"An error occurred while processing your request: {str(e)[:200]}",
                 "dashboard_type": self.dashboard_type,
                 "session_id": session_id
             }

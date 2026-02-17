@@ -2,6 +2,7 @@ import frappe
 from frappe.query_builder.functions import Count
 
 from insights.decorators import insights_whitelist
+from insights.api.response import success, error
 
 
 @insights_whitelist()
@@ -55,10 +56,10 @@ def get_resource_access_info(resource_type, resource_name):
         .run(as_dict=True)
     )
 
-    return {
+    return success({
         "authorized_teams": authorized_teams,
         "unauthorized_teams": unauthorized_teams,
-    }
+    })
 
 
 @insights_whitelist()

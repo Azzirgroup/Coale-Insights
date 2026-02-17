@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Breadcrumbs, call } from 'frappe-ui'
+import { apiCall } from '../helpers/api'
 import { RefreshCcw, Brain, Loader2, TrendingUp, AlertTriangle, Package, Users, DollarSign, ShoppingCart } from 'lucide-vue-next'
 import {computed, provide, ref } from 'vue'
 import { useRouter } from 'vue-router'
@@ -8,7 +9,7 @@ import useDashboard from './dashboard'
 import DashboardItem from './DashboardItem.vue'
 import VueGridLayout from './VueGridLayout.vue'
 import { useStorage } from '@vueuse/core'
-import { createToast } from '../../src/utils/toasts'
+import { createToast } from '../helpers/toasts'
 
 const props = defineProps<{ name: string }>()
 
@@ -109,18 +110,16 @@ async function trainMLModels() {
 			variant: 'info'
 		})
 		
-		const response = await call('insights.api.ml.get_dashboard_data', {
+		await apiCall('insights.api.ml.get_dashboard_data', {
 			dashboard_type: dashboardType
 		})
-		
-		if (response) {
-			await refreshWithAI()
-			createToast({
-				title: 'ML Models Updated',
-				message: 'Predictions are now available',
-				variant: 'success'
-			})
-		}
+
+		await refreshWithAI()
+		createToast({
+			title: 'ML Models Updated',
+			message: 'Predictions are now available',
+			variant: 'success'
+		})
 	} catch (error: any) {
 		createToast({
 			title: 'Training Error',

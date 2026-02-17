@@ -2,6 +2,7 @@ import frappe
 
 from insights.decorators import insights_whitelist, validate_type
 from insights.insights.doctype.insights_table_v3.insights_table_v3 import get_table_name
+from insights.api.response import success, error
 
 
 @insights_whitelist()

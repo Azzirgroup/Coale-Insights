@@ -82,25 +82,6 @@ class DoctypeBase(BaseDocument):
         return frappe.delete_doc(cls.doctype, name)
 
 
-class InsightsChart(DoctypeBase):
-    doctype = "Insights Chart"
-
-
-class InsightsTable(DoctypeBase):
-    doctype = "Insights Table"
-
-
-class InsightsQuery(DoctypeBase):
-    doctype = "Insights Query"
-
-
-class InsightsDataSource(DoctypeBase):
-    doctype = "Insights Data Source"
-
-
-class InsightsQueryResult(DoctypeBase):
-    doctype = "Insights Query Result"
-
 
 class InsightsDataSourcev3(DoctypeBase):
     doctype = "Insights Data Source v3"
@@ -227,3 +208,16 @@ class InsightsPageRenderer(TemplatePage):
         self.headers[
             "Content-Security-Policy"
         ] = f"frame-ancestors 'self' {allowed_origins}"
+
+
+def guarded_task(func):
+    """Decorator that guards scheduled tasks - skips if AI analytics is disabled or dependencies missing."""
+    def wrapper(*args, **kwargs):
+        settings = frappe.get_single("Insights Settings")
+        if not settings.enable_ai_analytics:
+            return
+        try:
+            return func(*args, **kwargs)
+        except ImportError as e:
+            frappe.log_error(f"Skipping {func.__name__}: {e}")
+    return wrapper

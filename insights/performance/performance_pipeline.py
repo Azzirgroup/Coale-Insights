@@ -67,8 +67,8 @@ class PerformancePipeline:
         self.smart_batching = True
         self.adaptive_caching = True
         
-        # Initialize monitoring
-        self._start_performance_monitoring()
+        # Monitoring thread is deferred — only started on first optimize_request()
+        self._monitoring_started = False
     
     def _get_max_workers(self) -> int:
         """Get optimal number of worker threads based on optimization level"""
@@ -114,6 +114,9 @@ class PerformancePipeline:
     def optimize_request(self, request_data: Dict[str, Any], 
                         callback: Optional[Callable] = None) -> Dict[str, Any]:
         """Optimize and process request through performance pipeline"""
+        
+        # Lazy-start monitoring on first request
+        self._start_performance_monitoring()
         
         request_id = frappe.generate_hash(length=12)
         start_time = time.time()
@@ -465,7 +468,15 @@ class PerformancePipeline:
         ]
     
     def _start_performance_monitoring(self):
-        """Start background performance monitoring"""
+        """Start background performance monitoring (lazy — only starts once).
+        
+        This is NOT called at import time to avoid spawning daemon threads
+        in every Gunicorn worker on module import. Only starts when
+        optimize_request() is actually called.
+        """
+        if self._monitoring_started:
+            return
+        self._monitoring_started = True
         
         def monitor_performance():
             while True:
@@ -636,23 +647,35 @@ class PerformancePipeline:
                 )
 
 
-# Global performance pipeline instance
-performance_pipeline = PerformancePipeline()
+# Lazy global instance — no daemon thread spawned at import time
+_performance_pipeline = None
+
+
+def _get_pipeline() -> PerformancePipeline:
+    """Get or create the global PerformancePipeline instance (lazy singleton)."""
+    global _performance_pipeline
+    if _performance_pipeline is None:
+        _performance_pipeline = PerformancePipeline()
+    return _performance_pipeline
+
+
+# Backward-compatible attribute access
+performance_pipeline = None  # Will be lazily initialized
 
 
 # Convenience functions
 def optimize_request(request_data: Dict[str, Any], callback: Optional[Callable] = None) -> Dict[str, Any]:
     """Optimize and process request through performance pipeline"""
-    return performance_pipeline.optimize_request(request_data, callback)
+    return _get_pipeline().optimize_request(request_data, callback)
 
 
 def get_performance_report() -> Dict[str, Any]:
     """Get current performance report"""
-    return performance_pipeline.get_performance_report()
+    return _get_pipeline().get_performance_report()
 
 
 def set_optimization_level(level: str):
     """Set performance optimization level"""
-    global performance_pipeline
+    global _performance_pipeline
     optimization_level = OptimizationLevel(level)
-    performance_pipeline = PerformancePipeline(optimization_level)
+    _performance_pipeline = PerformancePipeline(optimization_level)

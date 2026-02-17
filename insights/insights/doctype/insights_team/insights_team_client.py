@@ -16,7 +16,7 @@ class InsightsTeamClient:
         resources = []
         for resource in self.team_permissions:
             title_field = (
-                "label" if resource.resource_type == "Insights Table" else "title"
+                "label" if resource.resource_type == "Insights Table v3" else "title"
             )
             resources.append(
                 {
@@ -62,12 +62,12 @@ class InsightsTeamClient:
     def search_team_resources(self, resource_type, query):
         resources = []
 
-        if resource_type == "Insights Data Source":
-            InsightsDataSource = frappe.qb.DocType("Insights Data Source")
+        if resource_type == "Insights Data Source v3":
+            InsightsDataSource = frappe.qb.DocType("Insights Data Source v3")
             exclude_sources = [
                 r.resource_name
                 for r in self.team_permissions
-                if r.resource_type == "Insights Data Source"
+                if r.resource_type == "Insights Data Source v3"
             ]
             conditions = InsightsDataSource.title.like(f"%{query}%") | (
                 InsightsDataSource.database_type.like(f"%{query}%")
@@ -94,17 +94,17 @@ class InsightsTeamClient:
                         "name": source.name,
                         "title": source.title,
                         "database_type": source.database_type,
-                        "type": "Insights Data Source",
+                        "type": "Insights Data Source v3",
                     }
                 )
 
-        if resource_type == "Insights Table":
+        if resource_type == "Insights Table v3":
             # get all tables
-            InsightsTable = frappe.qb.DocType("Insights Table")
+            InsightsTable = frappe.qb.DocType("Insights Table v3")
             exclude_tables = [
                 r.resource_name
                 for r in self.team_permissions
-                if r.resource_type == "Insights Table"
+                if r.resource_type == "Insights Table v3"
             ]
             conditions = InsightsTable.label.like(f"%{query}%") | (
                 InsightsTable.data_source.like(f"%{query}%")
@@ -127,17 +127,17 @@ class InsightsTeamClient:
                     {
                         "name": table.name,
                         "title": table.label,
-                        "type": "Insights Table",
+                        "type": "Insights Table v3",
                         "data_source": table.data_source,
                     }
                 )
 
-        if resource_type == "Insights Query":
-            InsightsQuery = frappe.qb.DocType("Insights Query")
+        if resource_type == "Insights Query v3":
+            InsightsQuery = frappe.qb.DocType("Insights Query v3")
             exclude_queries = [
                 r.resource_name
                 for r in self.team_permissions
-                if r.resource_type == "Insights Query"
+                if r.resource_type == "Insights Query v3"
             ]
             conditions = InsightsQuery.title.like(f"%{query}%") | (
                 InsightsQuery.data_source.like(f"%{query}%")
@@ -162,16 +162,16 @@ class InsightsTeamClient:
                         "name": query.name,
                         "title": query.title,
                         "data_source": query.data_source,
-                        "type": "Insights Query",
+                        "type": "Insights Query v3",
                     }
                 )
 
-        if resource_type == "Insights Dashboard":
-            InsightsDashboard = frappe.qb.DocType("Insights Dashboard")
+        if resource_type == "Insights Dashboard v3":
+            InsightsDashboard = frappe.qb.DocType("Insights Dashboard v3")
             exclude_dashboards = [
                 r.resource_name
                 for r in self.team_permissions
-                if r.resource_type == "Insights Dashboard"
+                if r.resource_type == "Insights Dashboard v3"
             ]
             conditions = InsightsDashboard.title.like(f"%{query}%")
             if exclude_dashboards:
@@ -191,7 +191,7 @@ class InsightsTeamClient:
                     {
                         "name": dashboard.name,
                         "title": dashboard.title,
-                        "type": "Insights Dashboard",
+                        "type": "Insights Dashboard v3",
                     }
                 )
 

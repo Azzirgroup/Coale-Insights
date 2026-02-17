@@ -13,6 +13,7 @@ import numpy as np
 from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
 from collections import defaultdict
+from insights.api.ml import get_date_filter_sql
 from insights.ml.base import BaseMLModel
 
 
@@ -32,13 +33,13 @@ class SalesIntelligence(BaseMLModel):
     - Integration with existing ML forecasts
     """
     
-    # 24 month lookback for comparisons
-    DATE_FILTER_24M = "AND si.posting_date >= DATE_SUB(CURDATE(), INTERVAL 24 MONTH)"
-    DATE_FILTER_12M = "AND si.posting_date >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)"
-    
-    def __init__(self):
+    def __init__(self, date_filter: str = '12m'):
         super().__init__()
         self.model_name = "SalesIntelligence"
+        self.date_filter = date_filter
+        # Generate SQL date filters based on the date_filter parameter
+        self.DATE_FILTER_24M = get_date_filter_sql('24m', 'posting_date', 'si')
+        self.DATE_FILTER_12M = get_date_filter_sql(date_filter, 'posting_date', 'si')
         
     # ==================== DATA COLLECTION ====================
     
@@ -893,12 +894,12 @@ class SalesIntelligence(BaseMLModel):
 # ==================== API FUNCTIONS ====================
 
 @frappe.whitelist()
-def run_sales_intelligence(refresh: bool = False) -> Dict[str, Any]:
+def run_sales_intelligence(refresh: bool = False, date_filter: str = '12m') -> Dict[str, Any]:
     """Run sales intelligence analysis"""
-    model = SalesIntelligence()
+    model = SalesIntelligence(date_filter=date_filter)
     
     if not refresh:
-        cached = model.get_cached_results("sales_intelligence")
+        cached = model.get_cached_results(f"sales_intelligence_{date_filter}")
         if cached:
             return cached
     

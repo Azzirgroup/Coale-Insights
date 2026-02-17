@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { Breadcrumbs, call } from 'frappe-ui'
+import { Breadcrumbs, ListView } from 'frappe-ui'
+import { apiCall } from '../helpers/api'
 import { 
   RefreshCcw, Loader2, User, ShoppingCart, TrendingUp, 
   Gift, AlertTriangle, ArrowLeft, Mail, Phone, MapPin,
@@ -8,8 +9,15 @@ import {
 } from 'lucide-vue-next'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { createToast } from '../../src/utils/toasts'
+import { createToast } from '../helpers/toasts'
 import DashboardChatButton from '../components/DashboardChatButton.vue'
+import {
+  formatCurrency as formatCurrencyFull, formatCurrencyCompact, formatNumber,
+  formatDate, formatPercent,
+  getTierColor, getTierBgColor, getHealthColor, getHealthBgColor,
+  getRiskColor, getRfmColor,
+  addRecentCustomer,
+} from '../utils/customerUtils'
 
 const route = useRoute()
 const router = useRouter()
@@ -25,6 +33,33 @@ const customer = ref<any>(null)
 const purchaseHistory = ref<any[]>([])
 const crossSellRecommendations = ref<any[]>([])
 const purchasePatterns = ref<any>(null)
+
+// Cross-sell ListView columns
+const crossSellColumns = [
+  {
+    label: 'Item Code',
+    key: 'item_code',
+    width: 1.5,
+  },
+  {
+    label: 'Item Name',
+    key: 'item_name',
+    width: 2.5,
+  },
+  {
+    label: 'Confidence',
+    key: 'confidence',
+    width: 1,
+    align: 'right',
+    getLabel: (props: any) => `${((props.row.confidence || 0) * 100).toFixed(0)}%`,
+  },
+  {
+    label: 'Reason',
+    key: 'reason',
+    width: 2,
+    getLabel: (props: any) => props.row.reason || 'Purchase history',
+  },
+]
 
 // Sidebar navigation
 const activeSection = ref('profile')
@@ -55,26 +90,22 @@ async function loadCustomerData(refresh = false) {
   
   try {
     // Load main customer 360 data
-    const response = await call('insights.api.ml.customer_360_detail', {
+    const result = await apiCall('insights.api.ml.customer_360_detail', {
       customer_id: customerId.value,
       include_purchases: true,
       include_recommendations: true
     })
-    
-    if (response?.status === 'success') {
-      customer.value = response.customer
-      purchaseHistory.value = response.purchase_history || []
-      crossSellRecommendations.value = response.cross_sell || []
-      purchasePatterns.value = response.purchase_patterns || null
-      
-      createToast({
-        title: 'Customer Loaded',
-        message: `Loaded data for ${response.customer?.customer_name || customerId.value}`,
-        variant: 'success'
-      })
-    } else {
-      error.value = response?.message || 'Failed to load customer data'
-    }
+
+    customer.value = result.customer
+    purchaseHistory.value = result.purchase_history || []
+    crossSellRecommendations.value = result.cross_sell || []
+    purchasePatterns.value = result.purchase_patterns || null
+
+    createToast({
+      title: 'Customer Loaded',
+      message: `Loaded data for ${result.customer?.customer_name || customerId.value}`,
+      variant: 'success'
+    })
   } catch (e: any) {
     error.value = e.message || 'Failed to load customer details'
   } finally {
@@ -83,13 +114,14 @@ async function loadCustomerData(refresh = false) {
   }
 }
 
-// Navigate back to customer list
+// Navigate back to customer intelligence
 function goBack() {
   router.push('/customer-intelligence')
 }
 
-// Navigate to related customer by filter
+// Navigate to related customer
 function navigateToRelated(relatedCustomerId: string) {
+  addRecentCustomer(relatedCustomerId)
   router.push(`/customer/${relatedCustomerId}`)
 }
 
@@ -109,96 +141,9 @@ const predictedClv = computed(() => customer.value?.predicted_12m_clv || 0)
 
 const nextBestActions = computed(() => customer.value?.recommendations || [])
 
-// Helper functions
+// Helper functions — compact format for cards, full for tables
 function formatCurrency(value: number): string {
-  if (!value && value !== 0) return 'KES 0'
-  if (value >= 1000000) return `KES ${(value / 1000000).toFixed(1)}M`
-  if (value >= 1000) return `KES ${(value / 1000).toFixed(1)}K`
-  return `KES ${value.toFixed(0)}`
-}
-
-function formatNumber(value: number): string {
-  return value?.toLocaleString() || '0'
-}
-
-function formatDate(dateStr: string): string {
-  if (!dateStr) return 'N/A'
-  return new Date(dateStr).toLocaleDateString('en-US', { 
-    year: 'numeric', month: 'short', day: 'numeric' 
-  })
-}
-
-function formatPercent(value: number): string {
-  return `${value?.toFixed(1) || 0}%`
-}
-
-function getTierColor(tier: string): string {
-  const colors: Record<string, string> = {
-    'Diamond': 'bg-purple-600',
-    'Platinum': 'bg-blue-600',
-    'Gold': 'bg-yellow-500',
-    'Silver': 'bg-gray-400',
-    'Bronze': 'bg-orange-600'
-  }
-  return colors[tier] || 'bg-gray-500'
-}
-
-function getTierBgColor(tier: string): string {
-  const colors: Record<string, string> = {
-    'Diamond': 'bg-purple-50 border-purple-200',
-    'Platinum': 'bg-blue-50 border-blue-200',
-    'Gold': 'bg-yellow-50 border-yellow-200',
-    'Silver': 'bg-gray-50 border-gray-200',
-    'Bronze': 'bg-orange-50 border-orange-200'
-  }
-  return colors[tier] || 'bg-gray-50 border-gray-200'
-}
-
-function getHealthColor(status: string): string {
-  const colors: Record<string, string> = {
-    'Excellent': 'text-green-600',
-    'Healthy': 'text-blue-600',
-    'At Risk': 'text-yellow-600',
-    'Critical': 'text-red-600'
-  }
-  return colors[status] || 'text-gray-600'
-}
-
-function getHealthBgColor(status: string): string {
-  const colors: Record<string, string> = {
-    'Excellent': 'bg-green-100 text-green-700',
-    'Healthy': 'bg-blue-100 text-blue-700',
-    'At Risk': 'bg-yellow-100 text-yellow-700',
-    'Critical': 'bg-red-100 text-red-700'
-  }
-  return colors[status] || 'bg-gray-100 text-gray-700'
-}
-
-function getRiskColor(risk: string): string {
-  const colors: Record<string, string> = {
-    'Low': 'bg-green-100 text-green-700',
-    'Medium': 'bg-yellow-100 text-yellow-700',
-    'High': 'bg-orange-100 text-orange-700',
-    'Critical': 'bg-red-100 text-red-700'
-  }
-  return colors[risk] || 'bg-gray-100 text-gray-700'
-}
-
-function getRfmColor(segment: string): string {
-  const colors: Record<string, string> = {
-    'Champions': 'bg-purple-100 text-purple-700',
-    'Loyal Customers': 'bg-blue-100 text-blue-700',
-    'Potential Loyalists': 'bg-green-100 text-green-700',
-    'New Customers': 'bg-cyan-100 text-cyan-700',
-    'Promising': 'bg-teal-100 text-teal-700',
-    'Need Attention': 'bg-yellow-100 text-yellow-700',
-    'About to Sleep': 'bg-orange-100 text-orange-700',
-    'At Risk': 'bg-red-100 text-red-700',
-    "Can't Lose": 'bg-pink-100 text-pink-700',
-    'Hibernating': 'bg-gray-100 text-gray-700',
-    'Lost': 'bg-gray-200 text-gray-600'
-  }
-  return colors[segment] || 'bg-gray-100 text-gray-700'
+  return formatCurrencyCompact(value)
 }
 
 // Chat context for AI assistant
@@ -655,26 +600,13 @@ watch(customerId, () => {
                 <Gift class="w-5 h-5" />
                 Cross-sell Recommendations
               </h3>
-              <div v-if="crossSellRecommendations.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div 
-                  v-for="rec in crossSellRecommendations.slice(0, 6)" 
-                  :key="rec.item_code"
-                  class="p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-blue-300 transition-colors"
-                >
-                  <div class="flex items-start justify-between">
-                    <div class="flex-1">
-                      <p class="font-medium text-gray-900 truncate" :title="rec.item_name">{{ rec.item_code }}</p>
-                      <p class="text-sm text-gray-500 truncate" :title="rec.item_name">{{ rec.item_name }}</p>
-                    </div>
-                    <span class="px-2 py-1 text-xs font-medium bg-green-100 text-green-700 rounded">
-                      {{ (rec.confidence * 100).toFixed(0) }}%
-                    </span>
-                  </div>
-                  <div class="mt-2 text-xs text-gray-500">
-                    <span>Based on: {{ rec.reason || 'Purchase history' }}</span>
-                  </div>
-                </div>
-              </div>
+              <ListView
+                v-if="crossSellRecommendations.length > 0"
+                :columns="crossSellColumns"
+                :rows="crossSellRecommendations"
+                row-key="item_code"
+                :options="{ showTooltip: false, emptyState: { title: 'No cross-sell recommendations', description: 'No recommendations available at this time.' } }"
+              />
               <div v-else class="text-center py-12 text-gray-500">
                 <Gift class="w-12 h-12 mx-auto text-gray-300" />
                 <p class="mt-4">No cross-sell recommendations available</p>

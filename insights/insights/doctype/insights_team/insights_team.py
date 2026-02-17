@@ -5,12 +5,25 @@ import frappe
 from frappe.core.doctype.role.role import get_users as get_users_with_role
 from frappe.model.document import Document
 from frappe.utils.caching import site_cache
-from ibis import _
 
-from insights.insights.doctype.insights_data_source_v3.ibis_utils import (
-    exec_with_return,
-)
-from insights.insights.doctype.insights_table_v3.insights_table_v3 import get_table_name
+# Optional imports - handle gracefully if not available
+try:
+    from ibis import _
+    IBIS_AVAILABLE = True
+except ImportError:
+    _ = None
+    IBIS_AVAILABLE = False
+
+try:
+    from insights.insights.doctype.insights_data_source_v3.ibis_utils import (
+        exec_with_return,
+    )
+    from insights.insights.doctype.insights_table_v3.insights_table_v3 import get_table_name
+    V3_AVAILABLE = True
+except ImportError:
+    exec_with_return = None
+    get_table_name = None
+    V3_AVAILABLE = False
 
 
 class InsightsTeam(Document):

@@ -25,14 +25,19 @@ const routes = [
 		component: () => import('./ai/AIInsights.vue'),
 	},
 	{
+		path: '/executive-dashboard',
+		name: 'ExecutiveDashboard',
+		component: () => import('./intelligence/ExecutiveDashboard.vue'),
+	},
+	{
 		path: '/customer-intelligence',
 		name: 'CustomerIntelligence',
 		component: () => import('./dashboard/CustomerIntelligence.vue'),
 	},
 	{
+		// Legacy route — redirect to merged Customer Intelligence page
 		path: '/customer-360',
-		name: 'Customer360',
-		component: () => import('./dashboard/Customer360.vue'),
+		redirect: '/customer-intelligence',
 	},
 	{
 		path: '/customer/:customerId',
@@ -74,6 +79,36 @@ const routes = [
 		path: '/strategic-finance-intelligence',
 		name: 'StrategicFinanceIntelligence',
 		component: () => import('./intelligence/StrategicFinanceIntelligence.vue'),
+	},
+	{
+		path: '/manufacturing-intelligence',
+		name: 'ManufacturingIntelligence',
+		component: () => import('./intelligence/ManufacturingIntelligence.vue'),
+	},
+	{
+		path: '/marketing-crm-intelligence',
+		name: 'MarketingCRMIntelligence',
+		component: () => import('./intelligence/MarketingCRMIntelligence.vue'),
+	},
+	{
+		path: '/hr-intelligence',
+		name: 'HRIntelligence',
+		component: () => import('./intelligence/HRIntelligence.vue'),
+	},
+	{
+		path: '/esg-intelligence',
+		name: 'ESGIntelligence',
+		component: () => import('./intelligence/ESGIntelligence.vue'),
+	},
+	{
+		path: '/budget-variance-intelligence',
+		name: 'BudgetVarianceIntelligence',
+		redirect: '/strategic-finance-intelligence',
+	},
+	{
+		path: '/board-presentation',
+		name: 'BoardPresentationMode',
+		component: () => import('./intelligence/BoardPresentationMode.vue'),
 	},
 	{
 		props: true,

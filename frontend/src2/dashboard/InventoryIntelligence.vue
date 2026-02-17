@@ -1,15 +1,17 @@
 <script setup lang="ts">
-import { Breadcrumbs, call } from 'frappe-ui'
+import { Breadcrumbs } from 'frappe-ui'
+import { apiCall } from '../helpers/api'
 import { 
   RefreshCcw, Loader2, Package, Warehouse, ArrowRightLeft, Clock,
   AlertTriangle, TrendingUp, TrendingDown, Activity, BarChart3,
   PieChart, ShoppingCart, Truck, DollarSign, Archive, Boxes,
   ArrowUpRight, ArrowDownRight, Heart, Layers, ArrowRight
 } from 'lucide-vue-next'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { createToast } from '../../src/utils/toasts'
+import { createToast } from '../helpers/toasts'
 import DashboardChatButton from '../components/DashboardChatButton.vue'
+import IntelligenceDateFilter from '../components/IntelligenceDateFilter.vue'
 
 const router = useRouter()
 
@@ -18,6 +20,7 @@ const isLoading = ref(true)
 const isRefreshing = ref(false)
 const error = ref<string | null>(null)
 const data = ref<any>(null)
+const dateFilter = ref('12m')
 
 // Training state
 const isTraining = ref(false)
@@ -44,20 +47,17 @@ async function loadData(refresh = false) {
   error.value = null
   
   try {
-    const response = await call('insights.api.ml.inventory_intelligence', {
-      refresh: refresh
+    const result = await apiCall('insights.api.ml.inventory_intelligence', {
+      refresh: refresh,
+      date_filter: dateFilter.value
     })
-    
-    if (response?.status === 'success') {
-      data.value = response
-      createToast({
-        title: 'Data Loaded',
-        message: `Analyzed ${response.stock_overview?.total_skus || 0} SKUs`,
-        variant: 'success'
-      })
-    } else {
-      error.value = response?.message || 'Failed to load data'
-    }
+
+    data.value = result
+    createToast({
+      title: 'Data Loaded',
+      message: `Analyzed ${result?.stock_overview?.total_skus || 0} SKUs`,
+      variant: 'success'
+    })
   } catch (e: any) {
     error.value = e.message || 'Failed to load inventory intelligence'
   } finally {
@@ -72,24 +72,15 @@ async function trainInventoryIntelligence() {
   trainingStatus.value = ''
   
   try {
-    const response = await call('insights.api.ml.train_inventory_intelligence')
-    
-    if (response?.status === 'success') {
-      trainingStatus.value = '✓ Successfully refreshed inventory analysis'
-      data.value = response
-      createToast({
-        title: 'Analysis Complete',
-        message: `Analyzed ${response.stock_overview?.total_skus || 0} SKUs across ${response.stock_overview?.warehouse_count || 0} warehouses`,
-        variant: 'success'
-      })
-    } else {
-      trainingStatus.value = `✗ Analysis failed: ${response?.message || 'Unknown error'}`
-      createToast({
-        title: 'Analysis Failed',
-        message: response?.message || 'Unknown error',
-        variant: 'error'
-      })
-    }
+    const result = await apiCall('insights.api.ml.train_inventory_intelligence')
+
+    trainingStatus.value = '✓ Successfully refreshed inventory analysis'
+    data.value = result
+    createToast({
+      title: 'Analysis Complete',
+      message: `Analyzed ${result?.stock_overview?.total_skus || 0} SKUs across ${result?.stock_overview?.warehouse_count || 0} warehouses`,
+      variant: 'success'
+    })
   } catch (e: any) {
     trainingStatus.value = `✗ Analysis error: ${e.message}`
     createToast({
@@ -108,25 +99,17 @@ async function trainAbcXyz() {
   isTrainingAbcXyz.value = true
   
   try {
-    const response = await call('insights.api.ml.inventory_classification', {
+    const result = await apiCall('insights.api.ml.inventory_classification', {
       refresh: true
     })
-    
-    if (response?.status === 'success') {
-      createToast({
-        title: 'ABC/XYZ Classification Complete',
-        message: `Classified ${response.total_items || 0} items`,
-        variant: 'success'
-      })
-      // Reload main data to get updated ABC/XYZ
-      await loadData(true)
-    } else {
-      createToast({
-        title: 'Classification Failed',
-        message: response?.message || 'Unknown error',
-        variant: 'error'
-      })
-    }
+
+    createToast({
+      title: 'ABC/XYZ Classification Complete',
+      message: `Classified ${result?.total_items || 0} items`,
+      variant: 'success'
+    })
+    // Reload main data to get updated ABC/XYZ
+    await loadData(true)
   } catch (e: any) {
     createToast({
       title: 'Classification Error',
@@ -203,6 +186,11 @@ onMounted(() => {
   loadData()
 })
 
+// Watch for date filter changes
+watch(dateFilter, () => {
+  loadData()
+})
+
 // Breadcrumbs
 const breadcrumbs = [
   { label: 'Insights', href: '/insights' },
@@ -248,6 +236,7 @@ function handleDashboardRedirect(target: string) {
         <p class="text-sm text-gray-500">Comprehensive inventory analytics with FIFO valuation</p>
       </div>
       <div class="flex items-center gap-3">
+        <IntelligenceDateFilter v-model="dateFilter" />
         <button
           @click="trainInventoryIntelligence"
           :disabled="isTraining"

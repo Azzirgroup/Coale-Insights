@@ -195,7 +195,7 @@ class AIModelRouter:
     
     def _execute_request(self, task: TaskRequest, model: ModelType) -> str:
         """Execute AI request with selected model"""
-        from insights.ai_reasoning.openrouter_client import OpenRouterClient
+        from insights.ai.openrouter_client import OpenRouterClient
         
         client = OpenRouterClient()
         
@@ -264,40 +264,31 @@ Provide concise, structured response:"""
         return token_limits.get(model, 2000)
     
     def _check_cache(self, task: TaskRequest) -> Optional[Dict[str, Any]]:
-        """Check if request result is cached"""
+        """Check if request result is cached (delegates to central CacheManager)"""
+        from insights.cache_management.cache_manager import get_cached_data
         cache_key = self._generate_cache_key(task)
-        
-        if self.redis_client:
-            cached_result = self.redis_client.get(cache_key)
-            if cached_result:
-                result = json.loads(cached_result)
-                result["cached"] = True
-                return result
-        
+        cached_result = get_cached_data(cache_key)
+        if cached_result:
+            cached_result["cached"] = True
+            return cached_result
         return None
     
     def _cache_result(self, task: TaskRequest, result: str):
-        """Cache successful AI result"""
+        """Cache successful AI result (delegates to central CacheManager)"""
+        from insights.cache_management.cache_manager import cache_data
         cache_key = self._generate_cache_key(task)
-        cache_data = {
+        cache_payload = {
             "result": result,
             "timestamp": datetime.now().isoformat(),
             "complexity": task.complexity.value
         }
-        
         # Cache duration based on complexity
-        ttl_hours = {
-            TaskComplexity.SIMPLE: 24,    # Cache simple queries longer
-            TaskComplexity.MEDIUM: 12,    # Medium cache duration
-            TaskComplexity.COMPLEX: 6     # Shorter cache for complex analysis
+        ttl_map = {
+            TaskComplexity.SIMPLE: 86400,   # 24 h
+            TaskComplexity.MEDIUM: 43200,   # 12 h
+            TaskComplexity.COMPLEX: 21600   #  6 h
         }
-        
-        if self.redis_client:
-            self.redis_client.setex(
-                cache_key, 
-                ttl_hours[task.complexity] * 3600, 
-                json.dumps(cache_data)
-            )
+        cache_data(cache_key, cache_payload, level="hot", ttl=ttl_map.get(task.complexity, 43200))
     
     def _generate_cache_key(self, task: TaskRequest) -> str:
         """Generate cache key for task"""

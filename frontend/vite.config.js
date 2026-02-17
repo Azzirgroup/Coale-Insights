@@ -27,14 +27,14 @@ export default defineConfig({
 		alias: {
 			// https://github.com/vitejs/vite/discussions/16730#discussioncomment-13048825
 			vue: 'vue/dist/vue.esm-bundler.js',
-			'@': path.resolve(__dirname, 'src'),
+			'@': path.resolve(__dirname, 'src2'),
 			'tailwind.config.js': path.resolve(__dirname, 'tailwind.config.js'),
 		},
 	},
 	build: {
 		outDir: `../insights/public/frontend`,
 		emptyOutDir: true,
-		sourcemap: true,
+		sourcemap: false, // Disabled in production — saves ~30% bundle size
 		rollupOptions: {
 			input: {
 				main: path.resolve(__dirname, 'index.html'),
@@ -42,6 +42,9 @@ export default defineConfig({
 			output: {
 				manualChunks: {
 					'frappe-ui': ['frappe-ui'],
+					'echarts': ['echarts'],
+					'codemirror': ['codemirror', '@codemirror/lang-sql', '@codemirror/lang-python'],
+					'vue-flow': ['@vue-flow/core'],
 				},
 			},
 		},

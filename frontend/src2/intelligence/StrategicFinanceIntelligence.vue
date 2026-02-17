@@ -56,7 +56,7 @@
     </div>
 
     <!-- Main Content -->
-    <div v-else class="flex-1 overflow-auto">
+    <div v-else-if="data" class="flex-1 overflow-auto">
       <!-- Summary Cards -->
       <div class="p-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <div class="bg-white rounded-lg shadow-sm p-4 border">
@@ -176,9 +176,9 @@
           <PeriodComparisonTab :data="data?.period_comparison" />
         </div>
 
-        <!-- Budget Tab (Placeholder) -->
+        <!-- Budget Variance Tab -->
         <div v-show="activeTab === 'budget'">
-          <BudgetPlaceholderTab />
+          <BudgetVarianceTab />
         </div>
       </div>
     </div>
@@ -222,7 +222,7 @@ import WorkingCapitalTab from '../components/strategic-finance/WorkingCapitalTab
 import FinancialRatiosTab from '../components/strategic-finance/FinancialRatiosTab.vue'
 import ScenarioAnalysisTab from '../components/strategic-finance/ScenarioAnalysisTab.vue'
 import PeriodComparisonTab from '../components/strategic-finance/PeriodComparisonTab.vue'
-import BudgetPlaceholderTab from '../components/strategic-finance/BudgetPlaceholderTab.vue'
+import BudgetVarianceTab from '../components/strategic-finance/BudgetVarianceTab.vue'
 
 const router = useRouter()
 

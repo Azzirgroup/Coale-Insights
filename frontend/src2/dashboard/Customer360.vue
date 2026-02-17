@@ -1,12 +1,14 @@
 <script setup lang="tsx">
-import { Breadcrumbs, ListView, call, FormControl } from 'frappe-ui'
+import { Breadcrumbs, ListView, FormControl } from 'frappe-ui'
+import { apiCall } from '../helpers/api'
 import { 
   Search, Loader2, Star, AlertTriangle, Filter
 } from 'lucide-vue-next'
 import { computed, onMounted, ref, watch, watchEffect } from 'vue'
 import { useRouter } from 'vue-router'
-import { createToast } from '../../src/utils/toasts'
+import { createToast } from '../helpers/toasts'
 import DashboardChatButton from '../components/DashboardChatButton.vue'
+import IntelligenceDateFilter from '../components/IntelligenceDateFilter.vue'
 
 const router = useRouter()
 
@@ -18,6 +20,7 @@ const selectedRfmSegment = ref<string>('all')
 const customers = ref<any[]>([])
 const filteredCustomers = ref<any[]>([])
 const recentCustomers = ref<string[]>([])
+const dateFilter = ref('12m')
 
 // Tier options
 const tierOptions = [
@@ -49,11 +52,11 @@ const rfmSegmentOptions = [
 async function loadCustomers() {
   isLoading.value = true
   try {
-    const response = await call('insights.api.ml.customer_intelligence', {})
-    if (response?.status === 'success') {
-      customers.value = response.customers || []
-      filterCustomers()
-    }
+    const result = await apiCall('insights.api.ml.customer_intelligence', {
+      date_filter: dateFilter.value
+    })
+    customers.value = result?.customers || []
+    filterCustomers()
   } catch (e: any) {
     console.error('Failed to load customers:', e)
     createToast({
@@ -294,6 +297,11 @@ onMounted(() => {
   loadRecentCustomers()
   loadCustomers()
 })
+
+// Watch for date filter changes
+watch(dateFilter, () => {
+  loadCustomers()
+})
 </script>
 
 <template>
@@ -303,6 +311,7 @@ onMounted(() => {
       { label: 'Customer 360°', route: { name: 'Customer360' } }
     ]" />
     <div class="flex items-center gap-4">
+      <IntelligenceDateFilter v-model="dateFilter" />
       <span class="text-sm text-gray-500">
         {{ filteredCustomers.length }} of {{ customers.length }} customers
       </span>

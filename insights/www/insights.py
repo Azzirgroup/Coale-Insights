@@ -31,8 +31,8 @@ def get_user_permissions():
     """Get user permissions for insights access"""
     
     permissions = {
-        "can_view_dashboards": has_permission("Insights Dashboard", "read"),
-        "can_create_dashboards": has_permission("Insights Dashboard", "create"),
+        "can_view_dashboards": has_permission("Insights Dashboard v3", "read"),
+        "can_create_dashboards": has_permission("Insights Dashboard v3", "create"),
         "can_view_reports": has_permission("Insights Report", "read"),
         "can_create_reports": has_permission("Insights Report", "create"),
         "can_use_ai": has_permission("AI Query", "create"),

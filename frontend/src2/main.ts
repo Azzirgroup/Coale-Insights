@@ -7,8 +7,30 @@ import { registerControllers, registerGlobalComponents } from './globals.ts'
 import './index.css'
 import router from './router.ts'
 import { translationPlugin } from './translation.ts'
+import { createToast } from './helpers/toasts'
 
 setConfig('resourceFetcher', frappeRequest)
+
+// Initialize frappe global object if not exists
+if (!window.frappe) window.frappe = {}
+
+// Add CSRF token getter
+Object.defineProperty(window.frappe, 'csrf_token', {
+  get: () => {
+    const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+    return token || ''
+  }
+})
+
+// Add show_alert method to frappe
+window.frappe.show_alert = (options) => {
+  const { message, indicator = 'blue', title } = options
+  createToast({
+    title: title || 'Notification',
+    message,
+    variant: indicator === 'red' ? 'error' : indicator === 'green' ? 'success' : 'info'
+  })
+}
 
 const app = createApp(App)
 const pinia = createPinia()

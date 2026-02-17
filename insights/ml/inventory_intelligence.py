@@ -17,6 +17,7 @@ import numpy as np
 from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
 from insights.ml.base import BaseMLModel
+from insights.api.ml import get_date_filter_sql
 
 
 class InventoryIntelligence(BaseMLModel):
@@ -36,9 +37,12 @@ class InventoryIntelligence(BaseMLModel):
     - Procurement optimization
     """
     
-    def __init__(self):
+    def __init__(self, date_filter: str = '12m'):
         super().__init__()
         self.model_name = "InventoryIntelligence"
+        self.date_filter = date_filter
+        # Generate SQL date filter
+        self.date_filter_sql = get_date_filter_sql(date_filter, 'posting_date', '')
     
     def train(self, include_abc_xyz: bool = True, include_demand: bool = True) -> Dict[str, Any]:
         """Generate comprehensive inventory intelligence"""
@@ -689,11 +693,11 @@ class InventoryIntelligence(BaseMLModel):
             return None
 
 
-def run_inventory_intelligence(refresh: bool = False) -> Dict[str, Any]:
+def run_inventory_intelligence(refresh: bool = False, date_filter: str = '12m') -> Dict[str, Any]:
     """Run inventory intelligence analysis"""
-    model = InventoryIntelligence()
+    model = InventoryIntelligence(date_filter=date_filter)
     if not refresh:
-        cached = model.get_cached_results("inventory_intelligence")
+        cached = model.get_cached_results(f"inventory_intelligence_{date_filter}")
         if cached:
             return cached
     return model.train()

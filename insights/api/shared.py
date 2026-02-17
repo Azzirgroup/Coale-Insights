@@ -2,6 +2,7 @@ import frappe
 from frappe.query_builder import DocType
 
 from insights.decorators import validate_type
+from insights.api.response import success, error
 
 public_doctypes = [
     "Insights Dashboard v3",

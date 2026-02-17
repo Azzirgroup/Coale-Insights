@@ -68,10 +68,10 @@ def sync_site_tables():
     if frappe.flags.in_test or os.environ.get("CI"):
         return
 
-    if not frappe.db.exists("Insights Data Source", "Site DB"):
+    if not frappe.db.exists("Insights Data Source v3", "Site DB"):
         create_site_db_data_source()
 
-    doc = frappe.get_doc("Insights Data Source", "Site DB")
+    doc = frappe.get_doc("Insights Data Source v3", "Site DB")
     doc.enqueue_sync_tables()
 
 

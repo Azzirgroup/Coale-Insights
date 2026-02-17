@@ -208,7 +208,7 @@
           <div class="bg-white rounded-lg shadow-sm p-6 border">
             <h3 class="text-lg font-semibold text-gray-900 mb-4">Income by Account</h3>
             <div class="space-y-3">
-              <div v-for="inc in incomeAnalysis.by_account.slice(0, 10)" :key="inc.account_name"
+              <div v-for="inc in (incomeAnalysis.by_account || []).slice(0, 10)" :key="inc.account_name"
                    class="flex items-center justify-between">
                 <div class="flex items-center gap-3 flex-1">
                   <span class="text-sm font-medium text-gray-700 truncate w-32">{{ inc.account_name }}</span>
@@ -263,7 +263,7 @@
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-200">
-                <tr v-for="exp in expenseAnalysis.allowable_expenses.slice(0, 20)" :key="exp.account_name">
+                <tr v-for="exp in (expenseAnalysis.allowable_expenses || []).slice(0, 20)" :key="exp.account_name">
                   <td class="px-4 py-3">
                     <div class="font-medium text-gray-900">{{ exp.account_name }}</div>
                   </td>
@@ -275,7 +275,7 @@
                     <span class="px-2 py-1 rounded text-xs bg-green-100 text-green-700">Allowable</span>
                   </td>
                 </tr>
-                <tr v-for="exp in expenseAnalysis.non_allowable_expenses.slice(0, 10)" :key="exp.account_name">
+                <tr v-for="exp in (expenseAnalysis.non_allowable_expenses || []).slice(0, 10)" :key="exp.account_name">
                   <td class="px-4 py-3">
                     <div class="font-medium text-gray-900">{{ exp.account_name }}</div>
                   </td>
@@ -366,7 +366,7 @@
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-200">
-                <tr v-for="asset in capitalAllowances.asset_details.slice(0, 20)" :key="asset.name">
+                <tr v-for="asset in (capitalAllowances.asset_details || []).slice(0, 20)" :key="asset.name">
                   <td class="px-4 py-3">
                     <div class="font-medium text-gray-900">{{ asset.asset_name }}</div>
                     <div class="text-sm text-gray-500">{{ asset.name }}</div>

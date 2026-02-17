@@ -2,7 +2,6 @@
 # For license information, please see license.txt
 
 import frappe
-import ibis
 from frappe.defaults import get_user_default, set_user_default
 from frappe.handler import is_valid_http_method, is_whitelisted
 from frappe.integrations.utils import make_post_request
@@ -11,15 +10,33 @@ from frappe.rate_limiter import rate_limit
 
 from insights.api.shared import is_public
 from insights.decorators import insights_whitelist, validate_type
-from insights.insights.doctype.insights_data_source_v3.connectors.duckdb import (
-    get_duckdb_connection,
-)
-from insights.insights.doctype.insights_data_source_v3.ibis_utils import (
-    get_columns_from_schema,
-)
-from insights.insights.doctype.insights_table_v3.insights_table_v3 import (
-    InsightsTablev3,
-)
+from insights.api.response import success, error
+
+# Optional imports - handle gracefully if not available
+try:
+    import ibis
+    IBIS_AVAILABLE = True
+except ImportError:
+    ibis = None
+    IBIS_AVAILABLE = False
+
+try:
+    from insights.insights.doctype.insights_data_source_v3.connectors.duckdb import (
+        get_duckdb_connection,
+    )
+    from insights.insights.doctype.insights_data_source_v3.ibis_utils import (
+        get_columns_from_schema,
+    )
+    from insights.insights.doctype.insights_table_v3.insights_table_v3 import (
+        InsightsTablev3,
+    )
+    V3_AVAILABLE = True
+except ImportError:
+    get_duckdb_connection = None
+    get_columns_from_schema = None
+    InsightsTablev3 = None
+    V3_AVAILABLE = False
+
 from insights.insights.doctype.insights_team.insights_team import (
     check_data_source_permission,
 )
@@ -53,7 +70,7 @@ def get_user_info():
         "User", frappe.session.user, ["first_name", "last_name", "user_type"], as_dict=1
     )
 
-    return {
+    return success({
         "email": frappe.session.user,
         "first_name": user.get("first_name"),
         "last_name": user.get("last_name"),
@@ -62,10 +79,10 @@ def get_user_info():
         # TODO: move to `get_session_info` since not user specific
         "country": frappe.db.get_single_value("System Settings", "country"),
         "locale": frappe.db.get_single_value("System Settings", "language"),
-        "is_v2_instance": frappe.db.count("Insights Query") > 0,
+        "is_v2_instance": False,
         "default_version": get_user_default("insights_default_version", frappe.session.user),
         "has_desk_access": user.get("user_type") == "System User",
-    }
+    })
 
 
 @insights_whitelist()
@@ -123,6 +140,9 @@ def get_csv_file(filename: str):
 def get_file_data(filename: str):
     check_data_source_permission("uploads")
 
+    if not IBIS_AVAILABLE:
+        return error("Ibis library is not available. Please install ibis to use file upload features.")
+
     file, ext = get_csv_file(filename)
     file_path = file.get_full_path()
     file_name = file.file_name.split(".")[0]
@@ -138,18 +158,21 @@ def get_file_data(filename: str):
     columns = get_columns_from_schema(table.schema())
     rows = table.head(50).execute().fillna("").to_dict(orient="records")
 
-    return {
+    return success({
         "tablename": file_name,
         "rows": rows,
         "columns": columns,
         "total_rows": count,
-    }
+    })
 
 
 @insights_whitelist()
 @validate_type
 def import_csv_data(filename: str):
     check_data_source_permission("uploads")
+
+    if not IBIS_AVAILABLE or not V3_AVAILABLE:
+        return error("Required libraries (ibis or v3 components) are not available. Please install the required dependencies.")
 
     file, ext = get_csv_file(filename)
     file_path = file.get_full_path()

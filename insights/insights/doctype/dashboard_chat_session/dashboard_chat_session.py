@@ -17,7 +17,7 @@ class DashboardChatSession(Document):
     if TYPE_CHECKING:
         from frappe.types import DF
 
-        dashboard_type: DF.Literal["", "Sales", "Risk", "Inventory", "Procurement", "Financial", "Customer"]
+        dashboard_type: DF.Literal["", "Sales", "Risk", "Inventory", "Procurement", "Financial", "Customer", "General"]
         user: DF.Link
         last_activity: DF.Datetime | None
         is_active: DF.Check
@@ -37,7 +37,12 @@ class DashboardChatSession(Document):
 
     def validate(self):
         """Validate session data"""
-        if self.dashboard_type not in ["Sales", "Risk", "Inventory", "Procurement", "Financial", "Customer"]:
+        valid_types = [
+            "Sales", "Risk", "Inventory", "Procurement", "Financial",
+            "Customer", "General", "HR", "Executive", "Tax",
+            "Marketing", "Manufacturing", "ESG", "Budget Variance"
+        ]
+        if self.dashboard_type not in valid_types:
             frappe.throw("Invalid dashboard type")
 
     def add_message(self, role: str, content: str, metadata: Optional[Dict] = None) -> Dict:

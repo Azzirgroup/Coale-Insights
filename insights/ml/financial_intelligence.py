@@ -18,6 +18,7 @@ import numpy as np
 from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
 from insights.ml.base import BaseMLModel
+from insights.api.ml import get_date_filter_sql
 
 
 class FinancialIntelligence(BaseMLModel):
@@ -37,11 +38,14 @@ class FinancialIntelligence(BaseMLModel):
     VAT_RATE = 16.0  # Kenya standard VAT rate
     VAT_WHT_RATE = 2.0  # VAT Withholding rate
     
-    def __init__(self):
+    def __init__(self, date_filter: str = '12m'):
         super().__init__()
         self.model_name = "FinancialIntelligence"
+        self.date_filter = date_filter
         self.company = frappe.defaults.get_user_default("Company") or frappe.db.get_single_value("Global Defaults", "default_company")
         self.base_currency = frappe.db.get_value("Company", self.company, "default_currency") or "KES"
+        # Generate SQL date filter
+        self.date_filter_sql = get_date_filter_sql(date_filter, 'posting_date', '')
     
     def train(self) -> Dict[str, Any]:
         """Generate comprehensive financial intelligence"""
@@ -1289,11 +1293,11 @@ class FinancialIntelligence(BaseMLModel):
         }
 
 
-def run_financial_intelligence(refresh: bool = False) -> Dict[str, Any]:
+def run_financial_intelligence(refresh: bool = False, date_filter: str = '12m') -> Dict[str, Any]:
     """Run financial intelligence analysis"""
-    model = FinancialIntelligence()
+    model = FinancialIntelligence(date_filter=date_filter)
     if not refresh:
-        cached = model.get_cached_results("financial_intelligence")
+        cached = model.get_cached_results(f"financial_intelligence_{date_filter}")
         if cached:
             return cached
     return model.train()

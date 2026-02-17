@@ -8,6 +8,7 @@ Supports request queuing, model fallback, and response caching
 
 import json
 import time
+import os
 import frappe
 import requests
 from frappe import _
@@ -34,14 +35,19 @@ class OpenRouterClient:
     
     BASE_URL = "https://openrouter.ai/api/v1"
     
-    # Free models (prioritized) - updated Dec 2025
+    # Free models (prioritized) - updated Jul 2025
     FREE_MODELS = [
-        "meta-llama/llama-3.3-70b-instruct:free",
-        "openai/gpt-oss-120b:free",
-        "google/gemini-2.0-flash-exp:free",
-        "qwen/qwen3-235b-a22b:free",
         "mistralai/mistral-small-3.1-24b-instruct:free",
-        "nousresearch/hermes-3-llama-3.1-405b:free"
+        "google/gemma-3-27b-it:free",
+        "meta-llama/llama-3.3-70b-instruct:free",
+        "qwen/qwen3-coder:free",
+        "openai/gpt-oss-120b:free",
+        "nousresearch/hermes-3-llama-3.1-405b:free",
+        "google/gemma-3-12b-it:free",
+        "nvidia/nemotron-3-nano-30b-a3b:free",
+        "qwen/qwen3-next-80b-a3b-instruct:free",
+        "openai/gpt-oss-20b:free",
+        "deepseek/deepseek-r1-0528:free",
     ]
     
     # Paid models (fallback)
@@ -53,7 +59,10 @@ class OpenRouterClient:
     
     def __init__(self):
         self.settings = frappe.get_single("Insights Settings")
-        self.api_key = self.settings.get_password("openrouter_api_key") if self.settings.openrouter_api_key else None
+        self.api_key = (
+            self.settings.get_password("openrouter_api_key") if self.settings.openrouter_api_key
+            else os.environ.get("OPENROUTER_API_KEY")
+        )
         self.primary_model = self.settings.ai_model or self.FREE_MODELS[0]
         self.fallback_model = self.settings.ai_model_fallback or self.FREE_MODELS[1]
         self.request_queue = deque()
@@ -93,7 +102,13 @@ class OpenRouterClient:
         }
     
     def _make_request(self, messages: List[Dict], model: str, temperature: float = 0.7) -> Optional[Dict]:
-        """Make API request to OpenRouter"""
+        """Make API request to OpenRouter.
+
+        Returns response dict with 'choices' on success, or dict with
+        'request_error' key on failure.  Rate-limit (429) errors are
+        returned immediately so the caller's model-fallback loop can
+        move on to the next model without blocking.
+        """
         try:
             response = requests.post(
                 f"{self.BASE_URL}/chat/completions",
@@ -104,37 +119,53 @@ class OpenRouterClient:
                     "temperature": temperature,
                     "max_tokens": 2000
                 },
-                timeout=60
+                timeout=30
             )
-            
+
             if response.status_code == 429:
-                # Rate limited - store reset time
-                retry_after = response.headers.get("Retry-After", 60)
-                self.rate_limit_reset = time.time() + int(retry_after)
-                _safe_log_error(f"Rate limited. Retry after {retry_after}s", "AI Rate Limit")
-                return None
-            
+                retry_after = int(response.headers.get("Retry-After", 10))
+                self.rate_limit_reset = time.time() + retry_after
+                return {"request_error": f"Rate limited on {model.split('/')[-1]}. Retry after {retry_after}s.",
+                        "rate_limited": True}
+
             if response.status_code != 200:
                 error_text = response.text[:500] if response.text else "No response"
                 _safe_log_error(f"API Error {response.status_code}: {error_text}", "AI API Error")
-                return None
-            
+                return {"request_error": f"OpenRouter API error (HTTP {response.status_code}): {error_text[:200]}"}
+
             result = response.json()
-            
-            # Check for error in response
+
+            # Check for error in response body
             if "error" in result:
-                error_msg = str(result.get('error', {}))[:500]
+                error_msg = result.get('error', {})
+                if isinstance(error_msg, dict):
+                    code = error_msg.get('code')
+                    error_msg = error_msg.get('message', str(error_msg))
+                    # Upstream 429 returned as JSON error
+                    if code == 429:
+                        return {"request_error": f"Upstream rate limit on {model.split('/')[-1]}.",
+                                "rate_limited": True}
+                error_msg = str(error_msg)[:500]
                 _safe_log_error(f"API returned error: {error_msg}", "AI API Error")
-                return None
-                
+                return {"request_error": f"OpenRouter error: {error_msg[:200]}"}
+
+            # Validate that the response actually contains content
+            choices = result.get("choices", [])
+            if choices:
+                content = (choices[0].get("message") or {}).get("content", "")
+                if not content or not content.strip():
+                    return {"request_error": f"Empty response from {model.split('/')[-1]}"}
+
             return result
-            
+
+        except requests.exceptions.Timeout:
+            return {"request_error": f"Timeout calling {model.split('/')[-1]}"}
         except requests.exceptions.RequestException as e:
             _safe_log_error(f"Request Error: {str(e)[:300]}", "AI Request Error")
-            return None
+            return {"request_error": f"Network error: {str(e)[:200]}"}
         except Exception as e:
             _safe_log_error(f"Unexpected Error: {str(e)[:300]}", "AI Error")
-            return None
+            return {"request_error": f"Unexpected error: {str(e)[:200]}"}
     
     def chat(self, prompt: str, context: Optional[str] = None, use_cache: bool = True) -> Dict[str, Any]:
         """
@@ -164,21 +195,27 @@ class OpenRouterClient:
                 "error": "Daily AI quota exceeded"
             }
         
-        # Check rate limit
+        # Check rate limit — wait it out if short, otherwise return error
         if self.rate_limit_reset and time.time() < self.rate_limit_reset:
-            return {
-                "response": None,
-                "model_used": None,
-                "cached": False,
-                "error": f"Rate limited. Retry after {int(self.rate_limit_reset - time.time())} seconds"
-            }
+            wait_secs = int(self.rate_limit_reset - time.time())
+            if wait_secs <= 15:
+                time.sleep(wait_secs + 1)
+                self.rate_limit_reset = None
+            else:
+                return {
+                    "response": None,
+                    "model_used": None,
+                    "cached": False,
+                    "error": f"Rate limited. Please retry in {wait_secs} seconds."
+                }
         
-        # Build cache key
+        # Build cache key (unified via CacheManager)
+        from insights.cache_management.cache_manager import get_cached_data, cache_data as cm_cache_data
         cache_key = f"ai_analytics:{frappe.generate_hash(prompt + (context or ''), 10)}"
         
-        # Check cache
+        # Check cache (CacheManager tiers)
         if use_cache:
-            cached_response = frappe.cache.get_value(cache_key)
+            cached_response = get_cached_data(cache_key)
             if cached_response:
                 return {
                     "response": cached_response.get("response"),
@@ -218,17 +255,15 @@ Format your response with clear sections using markdown."""
             if model not in models_to_try:
                 models_to_try.append(model)
         
+        consecutive_rate_limits = 0
+        last_error = None
         for model in models_to_try:
             result = self._make_request(messages, model)
             if result and "choices" in result:
                 response_text = result["choices"][0]["message"]["content"]
                 
-                # Cache the response (24 hours)
-                frappe.cache.set_value(
-                    cache_key,
-                    {"response": response_text, "model": model},
-                    expires_in_sec=86400  # 24 hours
-                )
+                # Cache the response (24 hours) via CacheManager
+                cm_cache_data(cache_key, {"response": response_text, "model": model}, level="hot", ttl=86400)
                 
                 # Increment quota
                 self.increment_quota()
@@ -239,14 +274,124 @@ Format your response with clear sections using markdown."""
                     "cached": False,
                     "error": None
                 }
+            elif isinstance(result, dict):
+                last_error = result.get("request_error")
+                if result.get("rate_limited"):
+                    consecutive_rate_limits += 1
+                    # If 3+ consecutive rate limits, likely a global account limit
+                    if consecutive_rate_limits >= 3:
+                        return {
+                            "response": None,
+                            "model_used": None,
+                            "cached": False,
+                            "error": "All free AI models are currently rate-limited. Please wait a few minutes and try again."
+                        }
+                else:
+                    consecutive_rate_limits = 0
         
         return {
             "response": None,
             "model_used": None,
             "cached": False,
-            "error": "All models failed to respond"
+            "error": last_error or "All models failed to respond. Please try again shortly."
         }
     
+    def chat_completion(self, messages: List[Dict], complexity: str = "Medium", **kwargs) -> str:
+        """
+        Generate a chat completion from a list of messages.
+        Compatibility method used by standalone agents (HR, Executive, etc.).
+        
+        Args:
+            messages: List of message dicts with 'role' and 'content'
+            complexity: Query complexity hint (unused, kept for API compat)
+            
+        Returns:
+            The AI response text, or an error description string
+        """
+        if not self.is_enabled():
+            return "AI Analytics is not enabled. Please configure your OpenRouter API key."
+        
+        if not self.check_quota():
+            return "Daily AI quota exceeded. Please try again tomorrow."
+
+        # Build model list
+        models_to_try = [self.primary_model, self.fallback_model]
+        for m in self.FREE_MODELS:
+            if m not in models_to_try:
+                models_to_try.append(m)
+
+        consecutive_rate_limits = 0
+        last_error = None
+        for model in models_to_try:
+            result = self._make_request(messages, model)
+            if result and "choices" in result:
+                self.increment_quota()
+                return result["choices"][0]["message"]["content"]
+            elif isinstance(result, dict):
+                last_error = result.get("request_error")
+                if result.get("rate_limited"):
+                    consecutive_rate_limits += 1
+                    if consecutive_rate_limits >= 3:
+                        return "All free AI models are currently rate-limited. Please wait a few minutes and try again."
+                else:
+                    consecutive_rate_limits = 0
+
+        return last_error or "All AI models are temporarily unavailable. Please try again later."
+
+    def generate_response(self, prompt: str, system_prompt: str = None, **kwargs) -> str:
+        """
+        Generate AI response from a prompt string.
+        Compatibility method used by Marketing and Manufacturing agents.
+        
+        Args:
+            prompt: The user prompt
+            system_prompt: Optional system prompt
+            
+        Returns:
+            The AI response text
+        """
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+        return self.chat_completion(messages)
+
+    def is_available(self) -> bool:
+        """Check if AI is available (enabled + has API key + has quota).
+        Compatibility method used by ESG agent."""
+        return self.is_enabled() and self.check_quota()
+
+    def get_insights(self, prompt: str = None, query: str = None, context: str = None, **kwargs) -> Dict[str, Any]:
+        """
+        Generate insights from a prompt with optional context.
+        Compatibility method used by ESG agent.
+        
+        Args:
+            prompt: Analysis prompt (positional usage)
+            query: Analysis prompt (keyword usage by ESG agent)
+            context: Optional context data
+            **kwargs: Extra args like context_type, max_tokens (ignored)
+            
+        Returns:
+            Dict with 'status' and 'insights' keys for compatibility
+        """
+        actual_prompt = query or prompt or ""
+        messages = [
+            {
+                "role": "system",
+                "content": "You are an AI analytics assistant. Provide detailed, actionable insights."
+            }
+        ]
+        if context:
+            messages[0]["content"] += f"\n\nContext:\n{context}"
+        messages.append({"role": "user", "content": actual_prompt})
+        response_text = self.chat_completion(messages)
+        # Return in dict format expected by ESG agent
+        return {
+            "status": "success",
+            "insights": response_text
+        }
+
     def analyze_data(self, data: Dict[str, Any], analysis_type: str) -> Dict[str, Any]:
         """
         Analyze data with AI based on analysis type

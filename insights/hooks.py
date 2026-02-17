@@ -91,10 +91,6 @@ after_request = ["insights.insights.doctype.insights_data_source_v3.insights_dat
 
 fixtures = [
     {
-        "dt": "Insights Data Source",
-        "filters": {"name": ("in", ["Site DB", "Query Store"])},
-    },
-    {
         "dt": "Insights Data Source v3",
         "filters": {"name": "Site DB"},
     },
@@ -174,15 +170,25 @@ scheduler_events = {
         "insights.ml.scheduler.train_payment_prediction",
         "insights.ml.scheduler.train_customer_intelligence",
         "insights.ml.scheduler.train_sales_intelligence",
+        # AI Proactive Insights (TODO: implement)
+        # Executive Reports - Daily
+        "insights.reports.executive_reports.generate_daily_executive_report",
     ],
     "hourly": [
         "insights.api.data_store.update_failed_sync_status",
+        # AI Insight Alert threshold checks (TODO: implement)
     ],
     "weekly": [
         # ML Model Training - Weekly (resource intensive)
         "insights.ml.scheduler.train_abc_xyz_classification",
         "insights.ml.scheduler.train_demand_forecast",
         "insights.ml.scheduler.train_product_recommendations",
+        # Executive Reports - Weekly
+        "insights.reports.executive_reports.generate_weekly_executive_report",
+    ],
+    "monthly": [
+        # Executive Reports - Monthly
+        "insights.reports.executive_reports.generate_monthly_executive_report",
     ],
 }
 
@@ -193,17 +199,10 @@ before_tests = "insights.tests.utils.before_tests"
 
 # Overriding Methods
 # ------------------------------
-#
-# override_whitelisted_methods = {
-# 	"frappe.desk.doctype.event.event.get_events": "insights.event.get_events"
-# }
-#
-# each overriding function accepts a `data` argument;
-# generated from the base implementation of the doctype dashboard,
-# along with any modifications made in other Frappe apps
-# override_doctype_dashboards = {
-# 	"Task": "insights.task.get_dashboard_data"
-# }
+
+override_whitelisted_methods = {
+	"frappe.desk.doctype.dashboard_chart.dashboard_chart.get": "insights.overrides.dashboard_chart.get"
+}
 
 # exempt linked doctypes from being automatically cancelled
 #

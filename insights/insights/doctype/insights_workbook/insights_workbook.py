@@ -36,14 +36,10 @@ class InsightsWorkbook(Document):
         except Exception as e:
             frappe.log_error(f"Failed to backup workbook {self.name}: {str(e)}")
 
-        for q in frappe.get_all("Insights Query v3", {"workbook": self.name}):
-            frappe.delete_doc("Insights Query v3", q.name, force=True, ignore_permissions=True)
-        for c in frappe.get_all("Insights Chart v3", {"workbook": self.name}):
-            frappe.delete_doc("Insights Chart v3", c.name, force=True, ignore_permissions=True)
-        for d in frappe.get_all("Insights Dashboard v3", {"workbook": self.name}):
-            frappe.delete_doc("Insights Dashboard v3", d.name, force=True, ignore_permissions=True)
-        for f in frappe.get_all("Insights Folder", {"workbook": self.name}):
-            frappe.delete_doc("Insights Folder", f.name, force=True, ignore_permissions=True)
+        # Bulk delete related documents — single SQL per doctype instead of
+        # get_all + loop + delete_doc (which was N+1 for each child type)
+        for child_dt in ("Insights Query v3", "Insights Chart v3", "Insights Dashboard v3", "Insights Folder"):
+            frappe.db.delete(child_dt, {"workbook": self.name})
 
     def after_insert(self):
         # If this is a restored workbook (has data_backup) then restore child documents

@@ -23,6 +23,13 @@ dependencies = [
     # "ibis-framework[bigquery]",
 ]
 
+[project.optional-dependencies]
+ml = ["scikit-learn>=1.3.0", "xgboost>=2.0.0", "lightgbm>=4.1.0", "prophet>=1.1.4"]
+nlp = ["transformers>=4.36.0", "spacy>=3.7.0", "langchain>=0.0.350"]
+vectordb = ["chromadb>=0.4.0", "faiss-cpu>=1.7.4", "elasticsearch>=8.11.0"]
+export = ["plotly>=5.17.0", "weasyprint>=60.0", "python-pptx>=0.6.23", "reportlab>=4.0.0"]
+all = ["insights[ml,nlp,vectordb,export]"]
+
 [build-system]
 requires = ["flit_core >=3.4,<4"]
 build-backend = "flit_core.buildapi"

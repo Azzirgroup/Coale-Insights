@@ -9,6 +9,7 @@ from frappe.utils.telemetry import POSTHOG_HOST_FIELD, POSTHOG_PROJECT_FIELD
 from posthog import Posthog
 
 from insights.decorators import insights_whitelist
+from insights.api.response import success, error
 
 
 @frappe.whitelist()
@@ -30,22 +31,22 @@ def get_posthog_settings():
         if time_difference < 86400:  # 1 day
             can_record_session = True
 
-    return {
+    return success({
         "posthog_project_id": frappe.conf.get(POSTHOG_PROJECT_FIELD),
         "posthog_host": frappe.conf.get(POSTHOG_HOST_FIELD),
         "enable_telemetry": frappe.get_system_settings("enable_telemetry"),
         "telemetry_site_age": frappe.utils.telemetry.site_age(),
         "record_session": can_record_session,
         "posthog_identifier": frappe.local.site,
-    }
+    })
 
 
 @frappe.whitelist()
 def get_credentials():
-    return {
+    return success({
         "posthog_project_id": frappe.conf.get(POSTHOG_PROJECT_FIELD),
         "posthog_host": frappe.conf.get(POSTHOG_HOST_FIELD),
-    }
+    })
 
 
 @frappe.whitelist(allow_guest=True)

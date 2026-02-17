@@ -9,6 +9,7 @@
         </p>
       </div>
       <div class="flex items-center gap-3">
+        <IntelligenceDateFilter v-model="dateFilter" />
         <span v-if="lastUpdated" class="text-sm text-gray-500">
           Updated: {{ formatDate(lastUpdated) }}
         </span>
@@ -945,16 +946,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { Button, createResource } from 'frappe-ui'
 import { useRouter } from 'vue-router'
 import DashboardChatButton from '../components/DashboardChatButton.vue'
+import IntelligenceDateFilter from '../components/IntelligenceDateFilter.vue'
 
 const router = useRouter()
 
 const activeTab = ref('overview')
 const loading = ref(false)
 const lastUpdated = ref<string | null>(null)
+const dateFilter = ref('12m')
 
 const tabs = [
   { label: 'Overview', value: 'overview' },
@@ -1068,12 +1071,18 @@ const computeRatios = (data: any) => {
 
 const refreshData = () => {
   loading.value = true
-  financialResource.submit({ refresh: true })
+  financialResource.submit({ refresh: true, date_filter: dateFilter.value })
 }
 
 onMounted(() => {
   loading.value = true
-  financialResource.submit({ refresh: false })
+  financialResource.submit({ refresh: false, date_filter: dateFilter.value })
+})
+
+// Watch for date filter changes
+watch(dateFilter, () => {
+  loading.value = true
+  financialResource.submit({ refresh: false, date_filter: dateFilter.value })
 })
 
 // Formatting helpers

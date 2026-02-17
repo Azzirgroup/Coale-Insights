@@ -12,8 +12,11 @@ from typing import Any, Dict, List, Optional
 import frappe
 from frappe import _
 from frappe.utils import now_datetime, get_datetime, time_diff_in_hours
+# Note: using direct flat returns {"success": True/False, ...} instead of
+# the success()/error() helpers which wrap data under {"status": ..., "data": ...}
+# to match what the frontend DashboardChatButton.vue expects.
 
-# Import agents
+# Import agents — all agents now extend BaseIntelligenceAgent
 from insights.agents import AgentRegistry
 from insights.agents.query_router import route_query, get_query_router
 from insights.agents.sales_agent import SalesIntelligenceAgent
@@ -22,6 +25,13 @@ from insights.agents.inventory_agent import InventoryIntelligenceAgent
 from insights.agents.procurement_agent import ProcurementIntelligenceAgent
 from insights.agents.financial_agent import FinancialIntelligenceAgent
 from insights.agents.customer_agent import CustomerIntelligenceAgent
+from insights.agents.general_agent import GeneralIntelligenceAgent
+from insights.agents.tax_agent import TaxIntelligenceAgent
+from insights.agents.hr_agent import HRIntelligenceAgent
+from insights.agents.executive_agent import ExecutiveIntelligenceAgent
+from insights.agents.marketing_agent import MarketingIntelligenceAgent
+from insights.agents.manufacturing_agent import ManufacturingIntelligenceAgent
+from insights.agents.esg_agent import ESGIntelligenceAgent
 
 
 # Session timeout in hours (24 hours)
@@ -63,11 +73,16 @@ def _compress_context_minimal(context: Dict) -> Dict:
 
 
 def get_agent_for_dashboard(dashboard_type: str):
-    """Get the appropriate agent for a dashboard type"""
+    """Get the appropriate agent for a dashboard type.
+
+    All agents now extend BaseIntelligenceAgent and are registered via
+    @AgentRegistry.register(). The fallback dict is kept for safety in case
+    the decorator hasn't run yet (e.g. module not imported).
+    """
     agent = AgentRegistry.get_agent(dashboard_type)
     if agent:
         return agent
-    
+
     # Fallback to direct instantiation
     agents = {
         "Sales": SalesIntelligenceAgent,
@@ -75,13 +90,20 @@ def get_agent_for_dashboard(dashboard_type: str):
         "Inventory": InventoryIntelligenceAgent,
         "Procurement": ProcurementIntelligenceAgent,
         "Financial": FinancialIntelligenceAgent,
-        "Customer": CustomerIntelligenceAgent
+        "Customer": CustomerIntelligenceAgent,
+        "General": GeneralIntelligenceAgent,
+        "Tax": TaxIntelligenceAgent,
+        "HR": HRIntelligenceAgent,
+        "Executive": ExecutiveIntelligenceAgent,
+        "Marketing": MarketingIntelligenceAgent,
+        "Manufacturing": ManufacturingIntelligenceAgent,
+        "ESG": ESGIntelligenceAgent,
     }
-    
+
     agent_class = agents.get(dashboard_type)
     if agent_class:
         return agent_class()
-    
+
     frappe.throw(_(f"No agent available for dashboard type: {dashboard_type}"))
 
 
@@ -109,7 +131,7 @@ def get_recent_session(dashboard_type: str) -> Dict[str, Any]:
                 "messages": [],
                 "dashboard_type": dashboard_type
             }
-        
+
         # Check if session is still valid (within timeout)
         if session.last_activity:
             hours_since_activity = time_diff_in_hours(now_datetime(), session.last_activity)
@@ -124,7 +146,7 @@ def get_recent_session(dashboard_type: str) -> Dict[str, Any]:
                     "dashboard_type": dashboard_type,
                     "expired_session": session.name
                 }
-        
+
         return {
             "has_session": True,
             "session_id": session.name,
@@ -204,10 +226,10 @@ def send_message(session_id=None, query=None, context=None):
         # Validate inputs
         if not session_id or not query:
             return {"success": False, "error": "Missing session_id or query"}
-        
+
         # Truncate query if too long
         query = str(query)[:2000]
-        
+
         # Parse context if provided (comes as JSON string from frontend)
         ctx = {}
         if context:
@@ -218,23 +240,23 @@ def send_message(session_id=None, query=None, context=None):
                     ctx = context
             except json.JSONDecodeError:
                 ctx = {}
-        
+
         # Get session
         if not frappe.db.exists("Dashboard Chat Session", session_id):
             return {"success": False, "error": "Session not found"}
-        
+
         session = frappe.get_doc("Dashboard Chat Session", session_id)
         dashboard_type = session.dashboard_type
-        
+
         # Get agent
         agent = get_agent_for_dashboard(dashboard_type)
-        
+
         # Add user message
         session.add_message("user", query)
-        
-        # Get conversation history  
+
+        # Get conversation history
         history = session.build_conversation_history(max_tokens=1000)
-        
+
         # Execute query with context
         result = agent.execute(
             query=query,
@@ -242,20 +264,43 @@ def send_message(session_id=None, query=None, context=None):
             context=ctx,
             conversation_history=history
         )
-        
+
         # Add AI response
         if result.get("success"):
             session.add_message("assistant", result.get("response", ""))
-        
+
+        # Log query for audit trail / recent-queries sidebar
+        try:
+            from insights.insights.doctype.insights_ai_query.insights_ai_query import InsightsAIQuery
+            InsightsAIQuery.log_query(
+                query=query,
+                response=(result.get("response") or "")[:10000],
+                model_used=result.get("model_used"),
+                complexity=ctx.get("complexity"),
+                processing_time=result.get("processing_time"),
+                cached=result.get("cached", False),
+                conversation=session_id,
+                tokens_used=result.get("tokens_used"),
+                source_module=dashboard_type,
+            )
+        except Exception:
+            pass  # Non-critical — don't break the response
+
         return {
             "success": result.get("success", False),
             "response": result.get("response"),
             "error": result.get("error"),
             "model_used": result.get("model_used"),
+            "processing_time": result.get("processing_time"),
+            "cached": result.get("cached", False),
+            "timestamp": result.get("timestamp"),
             "session_id": session_id,
-            "dashboard_type": dashboard_type
+            "dashboard_type": dashboard_type,
+            "should_redirect": result.get("should_redirect"),
+            "redirect_to": result.get("redirect_to"),
+            "redirect_reason": result.get("redirect_reason"),
         }
-        
+
     except Exception as e:
         _safe_log_error(f"Send error: {str(e)[:200]}", "Chat API")
         return {"success": False, "error": str(e)}
@@ -333,6 +378,7 @@ def list_sessions(dashboard_type: str, limit: int = 10) -> Dict[str, Any]:
             messages = doc.get_messages()
             session["message_count"] = len(messages)
             session["preview"] = messages[-1]["content"][:100] if messages else ""
+            session["title"] = doc.get("session_title") or ""
         
         return {
             "success": True,
@@ -422,6 +468,156 @@ def update_session_context(session_id: str, context: str) -> Dict[str, Any]:
         }
 
 
+@frappe.whitelist(allow_guest=False)
+def delete_session(session_id: str) -> Dict[str, Any]:
+    """Delete a chat session and all its data."""
+    try:
+        if not frappe.db.exists("Dashboard Chat Session", session_id):
+            return {"success": False, "error": "Session not found"}
+
+        session = frappe.get_doc("Dashboard Chat Session", session_id)
+        if session.user != frappe.session.user and frappe.session.user != "Administrator":
+            return {"success": False, "error": "Access denied"}
+
+        frappe.delete_doc("Dashboard Chat Session", session_id, ignore_permissions=True)
+        frappe.db.commit()
+        return {"success": True}
+    except Exception as e:
+        _safe_log_error(f"Delete session: {str(e)[:200]}", "Chat API")
+        return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist(allow_guest=False)
+def rename_session(session_id: str, title: str) -> Dict[str, Any]:
+    """Set a display title for a chat session."""
+    try:
+        if not frappe.db.exists("Dashboard Chat Session", session_id):
+            return {"success": False, "error": "Session not found"}
+
+        session = frappe.get_doc("Dashboard Chat Session", session_id)
+        if session.user != frappe.session.user and frappe.session.user != "Administrator":
+            return {"success": False, "error": "Access denied"}
+
+        session.session_title = (title or "").strip()[:140]
+        session.save(ignore_permissions=True)
+        frappe.db.commit()
+        return {"success": True, "title": session.session_title}
+    except Exception as e:
+        _safe_log_error(f"Rename session: {str(e)[:200]}", "Chat API")
+        return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist(allow_guest=False)
+def export_session(session_id: str, fmt: str = "markdown") -> Dict[str, Any]:
+    """
+    Export a chat session as markdown or plain text.
+
+    Args:
+        session_id: session to export
+        fmt: 'markdown' (default) or 'text'
+
+    Returns:
+        Dict with exported content string
+    """
+    try:
+        if not frappe.db.exists("Dashboard Chat Session", session_id):
+            return {"success": False, "error": "Session not found"}
+
+        session = frappe.get_doc("Dashboard Chat Session", session_id)
+        if session.user != frappe.session.user and frappe.session.user != "Administrator":
+            return {"success": False, "error": "Access denied"}
+
+        messages = session.get_messages()
+        lines = []
+
+        if fmt == "markdown":
+            lines.append("# AI Insights Conversation")
+            lines.append(f"**Date:** {session.creation}")
+            lines.append(f"**User:** {session.user}")
+            lines.append("")
+            lines.append("---")
+            lines.append("")
+            for msg in messages:
+                role = msg.get("role", "user")
+                content = msg.get("content", "")
+                if role == "user":
+                    lines.append("### You")
+                    lines.append(content)
+                else:
+                    lines.append("### AI Assistant")
+                    lines.append(content)
+                lines.append("")
+        else:
+            for msg in messages:
+                role = "You" if msg.get("role") == "user" else "AI"
+                lines.append(f"[{role}]: {msg.get('content', '')}")
+                lines.append("")
+
+        return {"success": True, "content": "\n".join(lines), "format": fmt}
+    except Exception as e:
+        _safe_log_error(f"Export session: {str(e)[:200]}", "Chat API")
+        return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist(allow_guest=False)
+def search_sessions(q: str, limit: int = 20) -> Dict[str, Any]:
+    """
+    Search across all of the user's chat sessions by message content.
+
+    Args:
+        q: search query string
+        limit: max results
+
+    Returns:
+        Dict with matching sessions
+    """
+    try:
+        q = (q or "").strip()
+        if len(q) < 2:
+            return {"success": True, "sessions": []}
+
+        sessions = frappe.get_all(
+            "Dashboard Chat Session",
+            filters={"user": frappe.session.user},
+            fields=["name", "dashboard_type", "messages", "last_activity", "session_title"],
+            order_by="last_activity desc",
+            limit=100,
+        )
+
+        results = []
+        search_lower = q.lower()
+        for s in sessions:
+            try:
+                msgs = json.loads(s.get("messages") or "[]")
+            except (json.JSONDecodeError, TypeError):
+                msgs = []
+
+            for msg in msgs:
+                content = (msg.get("content") or "").lower()
+                if search_lower in content:
+                    # Return context around match
+                    idx = content.find(search_lower)
+                    start = max(0, idx - 40)
+                    end = min(len(content), idx + len(search_lower) + 60)
+                    snippet = ("..." if start > 0 else "") + content[start:end] + ("..." if end < len(content) else "")
+                    results.append({
+                        "name": s.name,
+                        "dashboard_type": s.dashboard_type,
+                        "last_activity": s.last_activity,
+                        "title": s.get("session_title") or "",
+                        "snippet": snippet,
+                        "message_count": len(msgs),
+                    })
+                    break  # one match per session
+            if len(results) >= int(limit):
+                break
+
+        return {"success": True, "sessions": results}
+    except Exception as e:
+        _safe_log_error(f"Search sessions: {str(e)[:200]}", "Chat API")
+        return {"success": False, "error": str(e)}
+
+
 @frappe.whitelist()
 def get_ai_chat_status() -> Dict[str, Any]:
     """
@@ -434,12 +630,14 @@ def get_ai_chat_status() -> Dict[str, Any]:
         settings = frappe.get_single("Insights Settings")
         
         return {
+            "success": True,
             "enabled": bool(settings.enable_ai_analytics),
             "configured": bool(settings.openrouter_api_key),
             "daily_quota": settings.daily_ai_quota or 100,
             "quota_used": settings.ai_quota_used or 0,
             "quota_remaining": max(0, (settings.daily_ai_quota or 100) - (settings.ai_quota_used or 0)),
-            "available_dashboards": ["Sales", "Risk", "Inventory", "Procurement", "Financial", "Customer"]
+            "available_dashboards": ["Sales", "Risk", "Inventory", "Procurement", "Financial", "Customer", "General",
+                                     "HR", "Executive", "Marketing", "Manufacturing", "ESG"]
         }
         
     except Exception as e:
@@ -449,3 +647,151 @@ def get_ai_chat_status() -> Dict[str, Any]:
             "configured": False,
             "error": str(e)
         }
+
+
+@frappe.whitelist(allow_guest=False)
+def send_message_streaming(session_id=None, query=None, context=None):
+    """
+    Send a message and stream the response token-by-token via frappe.publish_realtime.
+    The frontend listens on 'ai_response_token' events.
+    Falls back to non-streaming send_message if streaming fails.
+    """
+    import time as _time
+
+    if not session_id or not query:
+        return {"success": False, "error": "Missing session_id or query"}
+
+    query = str(query)[:2000]
+
+    ctx = {}
+    if context:
+        try:
+            ctx = json.loads(context) if isinstance(context, str) else (context if isinstance(context, dict) else {})
+        except json.JSONDecodeError:
+            ctx = {}
+
+    if not frappe.db.exists("Dashboard Chat Session", session_id):
+        return {"success": False, "error": "Session not found"}
+
+    session = frappe.get_doc("Dashboard Chat Session", session_id)
+    dashboard_type = session.dashboard_type
+    agent = get_agent_for_dashboard(dashboard_type)
+
+    session.add_message("user", query)
+    history = session.build_conversation_history(max_tokens=1000)
+
+    user = frappe.session.user
+    event_channel = f"ai_stream:{session_id}"
+
+    try:
+        # Try streaming via OpenRouter directly
+        from insights.ai.openrouter_client import OpenRouterClient
+        client = OpenRouterClient()
+
+        if not client.is_enabled() or not client.check_quota():
+            # Fallback to non-streaming
+            return send_message(session_id=session_id, query=query, context=json.dumps(ctx) if ctx else None)
+
+        # Build messages for OpenRouter
+        system_prompt = agent.build_system_prompt() if hasattr(agent, 'build_system_prompt') else (
+            "You are an expert business intelligence analyst for ERPNext ERP system."
+        )
+
+        messages = [{"role": "system", "content": system_prompt}]
+        if history:
+            for h in history:
+                messages.append({"role": h.get("role", "user"), "content": h.get("content", "")})
+        messages.append({"role": "user", "content": query})
+
+        import requests as req
+        start_time = _time.time()
+        response = req.post(
+            f"{client.BASE_URL}/chat/completions",
+            headers=client._get_headers(),
+            json={
+                "model": client.primary_model,
+                "messages": messages,
+                "temperature": 0.7,
+                "max_tokens": 2000,
+                "stream": True,
+            },
+            stream=True,
+            timeout=90,
+        )
+
+        if response.status_code != 200:
+            # Fallback
+            return send_message(session_id=session_id, query=query, context=json.dumps(ctx) if ctx else None)
+
+        full_response = []
+        model_used = client.primary_model
+
+        for line in response.iter_lines(decode_unicode=True):
+            if not line or not line.startswith("data: "):
+                continue
+            data_str = line[6:]
+            if data_str.strip() == "[DONE]":
+                break
+            try:
+                chunk = json.loads(data_str)
+                delta = chunk.get("choices", [{}])[0].get("delta", {})
+                token = delta.get("content")
+                if chunk.get("model"):
+                    model_used = chunk["model"]
+                if token:
+                    full_response.append(token)
+                    frappe.publish_realtime(
+                        event="ai_response_token",
+                        message={"token": token, "session_id": session_id},
+                        user=user,
+                    )
+            except json.JSONDecodeError:
+                continue
+
+        processing_time = round(_time.time() - start_time, 2)
+
+        # Signal completion
+        complete_text = "".join(full_response)
+        frappe.publish_realtime(
+            event="ai_response_done",
+            message={
+                "session_id": session_id,
+                "model_used": model_used,
+                "processing_time": processing_time,
+            },
+            user=user,
+        )
+
+        # Persist assistant message
+        session.add_message("assistant", complete_text)
+        client.increment_quota()
+
+        # Log query
+        try:
+            from insights.insights.doctype.insights_ai_query.insights_ai_query import InsightsAIQuery
+            InsightsAIQuery.log_query(
+                query=query,
+                response=complete_text[:10000],
+                model_used=model_used,
+                complexity=ctx.get("complexity"),
+                processing_time=processing_time,
+                cached=False,
+                conversation=session_id,
+                source_module=dashboard_type,
+            )
+        except Exception:
+            pass
+
+        return {
+            "success": True,
+            "streaming": True,
+            "response": complete_text,
+            "model_used": model_used,
+            "processing_time": processing_time,
+            "session_id": session_id,
+        }
+
+    except Exception as e:
+        _safe_log_error(f"Streaming error: {str(e)[:200]}", "Chat API Streaming")
+        # Fallback to non-streaming
+        return send_message(session_id=session_id, query=query, context=json.dumps(ctx) if ctx else None)

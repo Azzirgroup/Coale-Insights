@@ -20,6 +20,18 @@ class QueryRouter:
     
     # Dashboard routing keywords with weights
     DASHBOARD_KEYWORDS = {
+        "Executive": {
+            "high": ["CEO", "executive", "board", "strategy", "KPI", "performance", "summary", "overview", 
+                     "health", "score", "business performance", "company performance", "overall", 
+                     "cross-departmental", "enterprise", "organization", "C-suite", "executive report",
+                     "daily report", "weekly report", "monthly report", "business report", "management report",
+                     "board report", "executive summary report", "automated report", "scheduled report"],
+            "medium": ["strategic", "planning", "forecast", "governance", "leadership", "management",
+                      "quarterly", "annual", "board meeting", "executive summary", "business review",
+                      "report generation", "report scheduling", "email report", "PDF report", "board presentation"],
+            "low": ["dashboard", "report", "metrics", "analytics", "intelligence", "insights", "delivery",
+                   "notification", "alert", "automation", "schedule", "distribution"]
+        },
         "Sales": {
             "high": ["revenue", "sales invoice", "sales order", "selling", "quota", "sales target"],
             "medium": ["sales", "sold", "order", "invoice", "customer order", "deal", "pipeline", "rep", "representative"],
@@ -49,6 +61,39 @@ class QueryRouter:
             "high": ["customer lifetime value", "clv", "churn", "customer segment", "retention"],
             "medium": ["customer", "client", "cohort", "loyalty", "nps", "satisfaction"],
             "low": ["buyer", "account", "contact", "territory"]
+        },
+        "HR": {
+            "high": ["employee", "staff", "workforce", "headcount", "attrition", "turnover", "retention", 
+                     "payroll", "salary", "compensation", "hiring", "recruitment", "HR", "human resources", 
+                     "talent", "attendance", "leave", "training", "performance", "engagement"],
+            "medium": ["department", "team", "manager", "supervisor", "promotion", "career", "development",
+                      "skills", "competency", "appraisal", "review", "diversity", "inclusion", "benefits"],
+            "low": ["employee satisfaction", "work-life balance", "productivity", "absenteeism", "policy"]
+        },
+        "Manufacturing": {
+            "high": ["oee", "overall equipment effectiveness", "production efficiency", "manufacturing", 
+                     "work orders", "shop floor", "workstation", "bottleneck", "throughput", "capacity utilization",
+                     "first pass yield", "production planning", "manufacturing cost", "equipment downtime"],
+            "medium": ["production", "output", "quality", "defects", "rework", "scrap", "machines", "equipment",
+                      "maintenance", "downtime", "efficiency", "lean", "waste", "optimization", "scheduling"],
+            "low": ["capacity", "utilization", "forecast", "demand", "fulfillment", "labor cost", "material cost"]
+        },
+        "ESG": {
+            "high": ["esg", "environmental", "social", "governance", "sustainability", "carbon", "emissions",
+                     "renewable energy", "diversity", "inclusion", "compliance", "ethics", "corporate responsibility",
+                     "sustainable", "green", "carbon footprint", "greenhouse gas", "esg score", "esg rating"],
+            "medium": ["environment", "climate", "waste", "recycling", "water", "energy", "safety", "wellbeing",
+                      "training", "community", "risk management", "transparency", "audit", "board", "stakeholder"],
+            "low": ["impact", "responsibility", "policy", "framework", "standard", "benchmark", "target", "goal"]
+        },
+        "Budget": {
+            "high": ["budget variance", "budget vs actual", "variance analysis", "overspend", "underspend",
+                     "budget control", "forecast accuracy", "budget planning", "variance reporting", "budget deviation",
+                     "spending variance", "budget performance", "actual vs budget", "budget monitoring"],
+            "medium": ["budget", "variance", "actual", "forecast", "planning", "spending", "allocation", "deviation",
+                      "budget utilization", "forecast error", "budget review", "financial planning", "cost control", 
+                      "expense management", "budget tracking", "variance threshold", "budget alerts"],
+            "low": ["spend", "cost", "expense", "allocation", "monitoring", "control", "financial", "planning"]
         }
     }
     
@@ -193,12 +238,17 @@ class QueryRouter:
     def get_dashboard_description(self, dashboard_type: str) -> str:
         """Get a brief description of what a dashboard covers"""
         descriptions = {
+            "Executive": "C-suite overview, business health score, cross-departmental KPIs, and strategic insights",
             "Sales": "revenue analysis, sales performance, customer orders, and sales forecasting",
             "Risk": "credit risk, compliance, overdue payments, and anomaly detection",
             "Inventory": "stock levels, warehouse management, turnover analysis, and reorder optimization",
             "Procurement": "supplier management, purchasing, spend analysis, and vendor performance",
             "Financial": "profit & loss, cash flow, financial ratios, and tax compliance",
-            "Customer": "customer lifetime value, churn analysis, segmentation, and retention"
+            "Customer": "customer lifetime value, churn analysis, segmentation, and retention",
+            "HR": "workforce analytics, talent management, employee retention, and payroll optimization",
+			"Manufacturing": "production efficiency, OEE analysis, capacity planning, and quality optimization",
+			"ESG": "environmental impact, social responsibility, governance compliance, and sustainability reporting",
+			"Budget": "budget variance analysis, forecast accuracy, spending control, and financial planning optimization"
         }
         return descriptions.get(dashboard_type, f"{dashboard_type} intelligence and analytics")
 

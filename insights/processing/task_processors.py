@@ -446,23 +446,33 @@ class TaskProcessor:
             return {}
     
     def _get_available_data_summary(self) -> Dict[str, Any]:
-        """Get summary of available data for context"""
+        """Get summary of available data for context.
+        
+        Uses a single UNION ALL query instead of 9 sequential COUNT queries.
+        """
         
         try:
-            summary = {}
-            
-            # ERPNext modules data counts
             doctypes_to_check = [
                 "Sales Invoice", "Sales Order", "Purchase Order", "Purchase Invoice",
                 "Item", "Customer", "Supplier", "Stock Entry", "Delivery Note"
             ]
             
-            for doctype in doctypes_to_check:
-                try:
-                    count = frappe.db.count(doctype, {"docstatus": 1})
-                    summary[doctype.lower().replace(" ", "_")] = count
-                except:
-                    summary[doctype.lower().replace(" ", "_")] = 0
+            # Build a single UNION ALL query for all counts
+            union_parts = []
+            for dt in doctypes_to_check:
+                table_name = f"tab{dt}"
+                union_parts.append(
+                    f"SELECT '{dt}' as doctype, COUNT(*) as cnt FROM `{table_name}` WHERE docstatus = 1"
+                )
+            
+            sql = " UNION ALL ".join(union_parts)
+            
+            results = frappe.db.sql(sql, as_dict=True)
+            
+            summary = {}
+            for row in results:
+                key = row["doctype"].lower().replace(" ", "_")
+                summary[key] = row["cnt"]
             
             return summary
             

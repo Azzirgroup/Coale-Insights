@@ -224,7 +224,12 @@ class DashboardAIAgentConfig(Document):
 
     def validate(self):
         """Validate configuration"""
-        if self.dashboard_type not in ["Sales", "Risk", "Inventory", "Procurement", "Financial", "Customer"]:
+        valid_types = [
+            "Sales", "Risk", "Inventory", "Procurement", "Financial",
+            "Customer", "General", "HR", "Executive", "Tax",
+            "Marketing", "Manufacturing", "ESG", "Budget Variance"
+        ]
+        if self.dashboard_type not in valid_types:
             frappe.throw("Invalid dashboard type")
         
         if self.temperature and (self.temperature < 0 or self.temperature > 1):

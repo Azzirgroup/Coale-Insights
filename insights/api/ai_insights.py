@@ -101,7 +101,7 @@ def get_business_intelligence_insights(module: str, doctype: str = None, filters
     
     try:
         # Validate permissions
-        if not frappe.has_permission("Insights Dashboard", "read"):
+        if not frappe.has_permission("Insights Dashboard v3", "read"):
             frappe.throw(_("You don't have permission to view insights"))
         
         # Initialize ERPNext integrator
@@ -162,7 +162,7 @@ def get_realtime_dashboard_data(dashboard_id: str, widgets: str = None) -> Dict[
     
     try:
         # Validate permissions
-        if not frappe.has_permission("Insights Dashboard", "read"):
+        if not frappe.has_permission("Insights Dashboard v3", "read"):
             frappe.throw(_("You don't have permission to view dashboards"))
         
         # Initialize components

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Breadcrumbs, Button, call } from 'frappe-ui'
+import { apiCall } from '../helpers/api'
 import { Brain, Send, RefreshCw, Sparkles, TrendingUp, AlertTriangle, Lightbulb, Loader2, MessageSquare, X } from 'lucide-vue-next'
 import { ref, onMounted, nextTick } from 'vue'
 import { createToast } from '../helpers/toasts'
@@ -72,33 +73,25 @@ async function askQuestion(question: string) {
 	scrollToBottom()
 	
 	try {
-		const response = await call('insights.api.ai_insights.get_ai_insights', {
+		const response = await apiCall('insights.api.ai_insights.get_ai_insights', {
 			query: question,
 			complexity: selectedComplexity.value
 		})
 		
-		if (response?.success) {
-			messages.value.push({
-				type: 'ai',
-				content: response.response?.content || 'I received your question but couldn\'t generate a response.',
-				metadata: {
-					model_used: response.model_used,
-					processing_time: response.processing_time,
-					cached: response.cached
-				},
-				timestamp: new Date()
-			})
-		} else {
-			messages.value.push({
-				type: 'ai',
-				content: `Sorry, I encountered an error: ${response?.error || 'Unknown error'}`,
-				timestamp: new Date()
-			})
-		}
+		messages.value.push({
+			type: 'ai',
+			content: response.response?.content || 'I received your question but couldn\'t generate a response.',
+			metadata: {
+				model_used: response.model_used,
+				processing_time: response.processing_time,
+				cached: response.cached
+			},
+			timestamp: new Date()
+		})
 	} catch (error: any) {
 		messages.value.push({
 			type: 'ai',
-			content: 'Sorry, I\'m having trouble connecting to the AI service. Please try again.',
+			content: error.message || 'Sorry, I\'m having trouble connecting to the AI service. Please try again.',
 			timestamp: new Date()
 		})
 	}

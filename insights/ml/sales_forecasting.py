@@ -300,7 +300,12 @@ class SalesForecasting(BaseMLModel):
             if not forecast_result:
                 forecast_result = self._forecast_moving_average(df, periods)
         
-        elif self.method == "prophet" and self.prophet_available:
+        elif self.method == "prophet":
+            if not self.prophet_available:
+                return {
+                    "status": "error",
+                    "message": "Prophet not installed. Run: pip install insights[ml]"
+                }
             forecast_result = self._forecast_prophet(df, periods)
         
         elif self.method == "exponential_smoothing":

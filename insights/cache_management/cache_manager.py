@@ -8,9 +8,6 @@ import hashlib
 from typing import Any, Dict, List, Optional, Union
 from datetime import datetime, timedelta
 from enum import Enum
-import pickle
-import asyncio
-from concurrent.futures import ThreadPoolExecutor
 
 
 class CacheLevel(Enum):
@@ -21,16 +18,40 @@ class CacheLevel(Enum):
 
 
 class CacheManager:
-    """Advanced 3-tier caching system for AI insights performance optimization"""
+    """Synchronous 3-tier caching system for AI insights performance optimization.
+    
+    NOTE: Rewritten from async to sync because Frappe runs under WSGI (Gunicorn),
+    which is synchronous. async/await methods cannot be properly awaited in this context.
+    The DB-backed warm/cold tiers are kept but writes are batched where possible.
+    """
     
     def __init__(self):
-        self.redis_client = self._get_redis_client()
+        self._redis_client = None  # Lazy init — don't connect until first use
         self.db_cache_table = "Insights Cache"
+        self._db_table_checked = False
+        self._db_table_exists = False
         self.default_ttl = {
             CacheLevel.HOT: 3600,      # 1 hour for hot cache
             CacheLevel.WARM: 86400,    # 24 hours for warm cache  
             CacheLevel.COLD: 604800    # 7 days for cold cache
         }
+
+    def _ensure_db_table(self) -> bool:
+        """Check once whether the Insights Cache table exists."""
+        if not self._db_table_checked:
+            try:
+                self._db_table_exists = frappe.db.table_exists(self.db_cache_table)
+            except Exception:
+                self._db_table_exists = False
+            self._db_table_checked = True
+        return self._db_table_exists
+
+    @property
+    def redis_client(self):
+        """Lazy Redis connection — only connect on first use."""
+        if self._redis_client is None:
+            self._redis_client = self._get_redis_client()
+        return self._redis_client
         
     def _get_redis_client(self):
         """Initialize Redis connection for hot cache"""
@@ -56,17 +77,17 @@ class CacheManager:
             frappe.log_error(f"Redis connection failed: {str(e)}")
             return None
     
-    async def get(self, key: str, cache_levels: List[CacheLevel] = None) -> Optional[Any]:
-        """Retrieve data from cache with tier fallback"""
+    def get(self, key: str, cache_levels: List[CacheLevel] = None) -> Optional[Any]:
+        """Retrieve data from cache with tier fallback (synchronous)"""
         if cache_levels is None:
             cache_levels = [CacheLevel.HOT, CacheLevel.WARM, CacheLevel.COLD]
         
         for level in cache_levels:
             try:
-                result = await self._get_from_level(key, level)
+                result = self._get_from_level(key, level)
                 if result is not None:
                     # Promote to higher cache levels for future access
-                    await self._promote_cache(key, result, level)
+                    self._promote_cache(key, result, level)
                     return result
             except Exception as e:
                 frappe.log_error(f"Cache get error at {level}: {str(e)}")
@@ -74,19 +95,19 @@ class CacheManager:
         
         return None
     
-    async def set(self, key: str, value: Any, cache_level: CacheLevel = CacheLevel.HOT, 
-                  ttl: Optional[int] = None, metadata: Dict[str, Any] = None) -> bool:
-        """Store data in specified cache tier"""
+    def set(self, key: str, value: Any, cache_level: CacheLevel = CacheLevel.HOT, 
+            ttl: Optional[int] = None, metadata: Dict[str, Any] = None) -> bool:
+        """Store data in specified cache tier (synchronous)"""
         try:
             if ttl is None:
                 ttl = self.default_ttl[cache_level]
             
-            success = await self._set_to_level(key, value, cache_level, ttl, metadata)
+            success = self._set_to_level(key, value, cache_level, ttl, metadata)
             
             # Auto-promote valuable data to multiple levels
             if success and cache_level == CacheLevel.COLD:
                 # Also store in warm cache with shorter TTL
-                await self._set_to_level(key, value, CacheLevel.WARM, self.default_ttl[CacheLevel.WARM])
+                self._set_to_level(key, value, CacheLevel.WARM, self.default_ttl[CacheLevel.WARM])
             
             return success
             
@@ -94,7 +115,7 @@ class CacheManager:
             frappe.log_error(f"Cache set error: {str(e)}")
             return False
     
-    async def _get_from_level(self, key: str, level: CacheLevel) -> Optional[Any]:
+    def _get_from_level(self, key: str, level: CacheLevel) -> Optional[Any]:
         """Get data from specific cache level"""
         
         if level == CacheLevel.HOT and self.redis_client:
@@ -104,7 +125,9 @@ class CacheManager:
                 return json.loads(cached_data)
         
         elif level == CacheLevel.WARM:
-            # Database warm cache  
+            # Skip DB tiers if table doesn't exist
+            if not self._ensure_db_table():
+                return None
             cache_entry = frappe.db.get_value(
                 self.db_cache_table,
                 {"cache_key": key, "cache_level": "warm"},
@@ -116,11 +139,12 @@ class CacheManager:
                 try:
                     return json.loads(cache_entry.cache_value)
                 except json.JSONDecodeError:
-                    # Try pickle for complex objects
-                    return pickle.loads(cache_entry.cache_value.encode())
+                    return None
         
         elif level == CacheLevel.COLD:
-            # Database cold cache for complex results
+            # Skip DB tiers if table doesn't exist
+            if not self._ensure_db_table():
+                return None
             cache_entry = frappe.db.get_value(
                 self.db_cache_table,
                 {"cache_key": key, "cache_level": "cold"},
@@ -136,12 +160,12 @@ class CacheManager:
                         result["_cache_metadata"] = json.loads(cache_entry.metadata)
                     return result
                 except json.JSONDecodeError:
-                    return pickle.loads(cache_entry.cache_value.encode())
+                    return None
         
         return None
     
-    async def _set_to_level(self, key: str, value: Any, level: CacheLevel, 
-                           ttl: int, metadata: Dict[str, Any] = None) -> bool:
+    def _set_to_level(self, key: str, value: Any, level: CacheLevel, 
+                      ttl: int, metadata: Dict[str, Any] = None) -> bool:
         """Set data to specific cache level"""
         
         try:
@@ -152,16 +176,20 @@ class CacheManager:
             
             else:
                 # Database cache for warm and cold tiers
+                if not self._ensure_db_table():
+                    return False
                 expires_at = datetime.now() + timedelta(seconds=ttl)
                 
-                # Serialize value
+                # Serialize value — JSON only, no pickle for safety
                 try:
                     cache_value = json.dumps(value)
                 except (TypeError, ValueError):
-                    # Fallback to pickle for complex objects
-                    cache_value = pickle.dumps(value).decode()
+                    frappe.log_error(f"Cache: cannot JSON-serialize value for key {key}")
+                    return False
                 
-                # Check if entry exists
+                metadata_json = json.dumps(metadata) if metadata else None
+
+                # Use single SQL upsert pattern instead of get_value + set_value/insert
                 existing = frappe.db.get_value(
                     self.db_cache_table,
                     {"cache_key": key, "cache_level": level.value},
@@ -169,26 +197,20 @@ class CacheManager:
                 )
                 
                 if existing:
-                    # Update existing
-                    frappe.db.set_value(
-                        self.db_cache_table, 
-                        existing,
-                        {
-                            "cache_value": cache_value,
-                            "expires_at": expires_at,
-                            "metadata": json.dumps(metadata) if metadata else None,
-                            "access_count": frappe.db.get_value(self.db_cache_table, existing, "access_count") + 1
-                        }
-                    )
+                    frappe.db.sql("""
+                        UPDATE `tabInsights Cache`
+                        SET cache_value = %s, expires_at = %s, metadata = %s,
+                            access_count = access_count + 1
+                        WHERE name = %s
+                    """, (cache_value, expires_at, metadata_json, existing))
                 else:
-                    # Create new entry
                     cache_doc = frappe.get_doc({
                         "doctype": self.db_cache_table,
                         "cache_key": key,
                         "cache_level": level.value,
                         "cache_value": cache_value,
                         "expires_at": expires_at,
-                        "metadata": json.dumps(metadata) if metadata else None,
+                        "metadata": metadata_json,
                         "access_count": 1,
                         "created_by": frappe.session.user
                     })
@@ -201,16 +223,14 @@ class CacheManager:
             frappe.log_error(f"Cache set error for {level}: {str(e)}")
             return False
     
-    async def _promote_cache(self, key: str, value: Any, current_level: CacheLevel):
+    def _promote_cache(self, key: str, value: Any, current_level: CacheLevel):
         """Promote frequently accessed data to higher cache tiers"""
         
         if current_level == CacheLevel.COLD:
-            # Promote cold to warm cache
-            await self._set_to_level(key, value, CacheLevel.WARM, self.default_ttl[CacheLevel.WARM])
+            self._set_to_level(key, value, CacheLevel.WARM, self.default_ttl[CacheLevel.WARM])
         
         elif current_level == CacheLevel.WARM and self.redis_client:
-            # Promote warm to hot cache
-            await self._set_to_level(key, value, CacheLevel.HOT, self.default_ttl[CacheLevel.HOT])
+            self._set_to_level(key, value, CacheLevel.HOT, self.default_ttl[CacheLevel.HOT])
     
     def delete(self, key: str, cache_levels: List[CacheLevel] = None):
         """Delete data from specified cache levels"""
@@ -225,12 +245,14 @@ class CacheManager:
                     frappe.db.delete(self.db_cache_table, {
                         "cache_key": key,
                         "cache_level": level.value
-                    })
+                    }) if self._ensure_db_table() else None
             except Exception as e:
                 frappe.log_error(f"Cache delete error for {level}: {str(e)}")
     
     def clear_expired(self):
         """Clean up expired cache entries"""
+        if not self._ensure_db_table():
+            return
         try:
             # Clean database cache
             frappe.db.delete(self.db_cache_table, {
@@ -321,22 +343,22 @@ class SmartCacheKey:
         return f"erp:{doctype}:{filter_hash}:{field_hash}"
 
 
-# Async cache manager instance
+# Cache manager instance (lazy — no connections until first use)
 cache_manager = CacheManager()
 
 
-# Convenience functions for external use
-async def get_cached_data(key: str, cache_levels: List[str] = None) -> Optional[Any]:
+# Convenience functions for external use (synchronous)
+def get_cached_data(key: str, cache_levels: List[str] = None) -> Optional[Any]:
     """Get cached data with automatic tier fallback"""
     levels = [CacheLevel(level) for level in cache_levels] if cache_levels else None
-    return await cache_manager.get(key, levels)
+    return cache_manager.get(key, levels)
 
 
-async def cache_data(key: str, value: Any, level: str = "hot", ttl: Optional[int] = None, 
-                    metadata: Dict[str, Any] = None) -> bool:
+def cache_data(key: str, value: Any, level: str = "hot", ttl: Optional[int] = None, 
+               metadata: Dict[str, Any] = None) -> bool:
     """Cache data in specified tier"""
     cache_level = CacheLevel(level)
-    return await cache_manager.set(key, value, cache_level, ttl, metadata)
+    return cache_manager.set(key, value, cache_level, ttl, metadata)
 
 
 def invalidate_cache(key: str, levels: List[str] = None):
@@ -350,13 +372,13 @@ def get_cache_statistics() -> Dict[str, Any]:
     return cache_manager.get_cache_stats()
 
 
-# Decorator for automatic caching
+# Decorator for automatic caching (synchronous)
 def cached_result(cache_level: str = "hot", ttl: Optional[int] = None, 
                  key_generator: callable = None):
     """Decorator for automatic function result caching"""
     
     def decorator(func):
-        async def wrapper(*args, **kwargs):
+        def wrapper(*args, **kwargs):
             # Generate cache key
             if key_generator:
                 cache_key = key_generator(*args, **kwargs)
@@ -366,13 +388,13 @@ def cached_result(cache_level: str = "hot", ttl: Optional[int] = None,
                 cache_key = hashlib.md5(key_data.encode()).hexdigest()
             
             # Try to get from cache
-            cached_result = await get_cached_data(cache_key)
-            if cached_result is not None:
-                return cached_result
+            cached = get_cached_data(cache_key)
+            if cached is not None:
+                return cached
             
             # Execute function and cache result
-            result = await func(*args, **kwargs) if asyncio.iscoroutinefunction(func) else func(*args, **kwargs)
-            await cache_data(cache_key, result, cache_level, ttl)
+            result = func(*args, **kwargs)
+            cache_data(cache_key, result, cache_level, ttl)
             
             return result
         

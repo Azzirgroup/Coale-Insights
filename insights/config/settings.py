@@ -1,12 +1,10 @@
 # Frappe Insights Configuration
 
 # AI Model Configuration
-OPENROUTER_API_KEY = "your_openrouter_api_key_here"
+# API keys and model config stored in Insights Settings DocType
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 # Model Settings
-DEFAULT_AI_MODEL = "llama-3.1-8b-instruct"
-FALLBACK_AI_MODEL = "claude-3.5-haiku"
 MODEL_TIMEOUT = 30
 MAX_RETRIES = 3
 

@@ -706,7 +706,7 @@
 <script setup>
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { Button } from 'frappe-ui'
-import { call } from 'frappe-ui'
+import { apiCall } from '../helpers/api'
 import { useRouter } from 'vue-router'
 import DashboardChatButton from '../components/DashboardChatButton.vue'
 
@@ -785,25 +785,21 @@ function handleDashboardRedirect(target) {
 const refreshData = async () => {
   loading.value = true
   try {
-    const data = await call('insights.api.ml.risk_intelligence', { refresh: true })
-    
-    if (data.status === 'success') {
-      // Map API response to data refs - API returns data directly, not under data.data
-      overviewData.value = data.overview || {}
-      creditData.value = data.credit_risk || {}
-      cashflowData.value = data.cashflow_risk || {}
-      operationalData.value = data.operational_risk || {}
-      complianceData.value = data.compliance_risk || {}
-      predictiveData.value = data.predictive_analytics || {}
-      
-      lastUpdated.value = data.generated_at || new Date().toISOString()
-      
-      // Render charts after data update
-      await nextTick()
-      renderCharts()
-    } else {
-      console.error('Risk Intelligence API returned error:', data.message)
-    }
+    const result = await apiCall('insights.api.ml.risk_intelligence', { refresh: true })
+
+    // Map API response to data refs - API returns data directly, not under data.data
+    overviewData.value = result.overview || {}
+    creditData.value = result.credit_risk || {}
+    cashflowData.value = result.cashflow_risk || {}
+    operationalData.value = result.operational_risk || {}
+    complianceData.value = result.compliance_risk || {}
+    predictiveData.value = result.predictive_analytics || {}
+
+    lastUpdated.value = result.generated_at || new Date().toISOString()
+
+    // Render charts after data update
+    await nextTick()
+    renderCharts()
   } catch (error) {
     console.error('Failed to refresh risk intelligence data:', error)
   } finally {

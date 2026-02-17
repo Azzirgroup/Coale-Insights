@@ -263,7 +263,7 @@ def train_customer_intelligence():
         if customer_count > model.CUSTOMER_THRESHOLD:
             # Run async for large datasets
             frappe.enqueue(
-                "insights.ml.customer_intelligence._run_customer_intelligence_job",
+                "insights.ml.customer_intelligence.api._run_customer_intelligence_job",
                 queue="long",
                 timeout=3600,
                 update_customers=True

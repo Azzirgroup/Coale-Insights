@@ -3,6 +3,7 @@
 
 import frappe
 from frappe.integrations.utils import make_post_request
+from insights.api.response import success, error
 
 
 def get_subscription_key():
