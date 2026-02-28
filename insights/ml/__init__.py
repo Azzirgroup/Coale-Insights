@@ -12,7 +12,7 @@ from insights.ml.sales_forecasting import SalesForecasting
 from insights.ml.payment_prediction import PaymentPrediction
 from insights.ml.demand_forecasting import DemandForecasting
 from insights.ml.product_recommendations import ProductRecommendations
-from insights.ml.customer_intelligence import CustomerIntelligence
+from insights.ml.customer_intelligence.model import CustomerIntelligence
 from insights.ml.sales_intelligence import SalesIntelligence
 from insights.ml.risk_intelligence import RiskIntelligence
 

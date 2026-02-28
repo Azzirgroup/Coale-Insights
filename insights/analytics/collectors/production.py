@@ -111,7 +111,7 @@ class ProductionDataCollector(BaseCollector):
             SELECT
                 workstation,
                 COUNT(*) as job_count,
-                SUM(time_in_mins) as total_minutes
+                SUM(total_time_in_mins) as total_minutes
             FROM `tabJob Card`
             WHERE posting_date BETWEEN %s AND %s
             AND company = %s

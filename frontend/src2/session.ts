@@ -57,7 +57,7 @@ async function initialize(force: boolean = false) {
 
 async function fetchSessionInfo() {
 	if (!session.isLoggedIn) return
-	const userInfo: SessionUser = await call('insights.api.get_user_info')
+	const userInfo: SessionUser = await call('insights.api.app.get_user_info')
 	Object.assign(session.user, {
 		...userInfo,
 		is_admin: Boolean(userInfo.is_admin),
@@ -69,7 +69,7 @@ async function fetchSessionInfo() {
 
 function updateDefaultVersion(version: SessionUser['default_version']) {
 	session.user.default_version = version
-	return call('insights.api.update_default_version', { version })
+	return call('insights.api.app.update_default_version', { version })
 }
 
 async function login(email: string, password: string) {

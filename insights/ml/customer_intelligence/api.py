@@ -270,6 +270,68 @@ def _analyze_customer_purchase_patterns(purchase_history: List[Dict[str, Any]]) 
         return None
 
 
+def _normalize_confidence(raw_confidence: float, tier: int) -> float:
+    """Normalize confidence to 0-1 range with tier discount.
+
+    Tier 1 (Association Rules): up to 1.0
+    Tier 2 (Frequently Bought Together): up to 0.85
+    Tier 3 (Category Popular): up to 0.65
+    Tier 4 (Expansion): up to 0.45
+    Tier 0 (Seasonal): up to 0.95
+    """
+    tier_ceilings = {0: 0.95, 1: 1.0, 2: 0.85, 3: 0.65, 4: 0.45}
+    ceiling = tier_ceilings.get(tier, 0.5)
+    normalized = min(max(float(raw_confidence or 0), 0), 1.0)
+    return round(normalized * ceiling, 3)
+
+
+def _get_seasonal_recommendations(customer_id: str, purchased_set: set) -> List[Dict[str, Any]]:
+    """Get items this customer typically buys in the current quarter but hasn't bought recently"""
+    from datetime import datetime
+    current_quarter = (datetime.now().month - 1) // 3 + 1
+
+    try:
+        seasonal_items = frappe.db.sql("""
+            SELECT sii.item_code, i.item_name, i.item_group,
+                   COUNT(*) as seasonal_frequency
+            FROM `tabSales Invoice Item` sii
+            JOIN `tabSales Invoice` si ON sii.parent = si.name
+            JOIN `tabItem` i ON sii.item_code = i.name
+            WHERE si.customer = %(customer_id)s
+              AND si.docstatus = 1
+              AND QUARTER(si.posting_date) = %(quarter)s
+              AND sii.item_code NOT IN (
+                  SELECT DISTINCT sii2.item_code
+                  FROM `tabSales Invoice Item` sii2
+                  JOIN `tabSales Invoice` si2 ON sii2.parent = si2.name
+                  WHERE si2.customer = %(customer_id)s AND si2.docstatus = 1
+                    AND si2.posting_date >= DATE_SUB(CURDATE(), INTERVAL 3 MONTH)
+              )
+            GROUP BY sii.item_code
+            HAVING seasonal_frequency >= 2
+            ORDER BY seasonal_frequency DESC
+            LIMIT 5
+        """, {"customer_id": customer_id, "quarter": current_quarter}, as_dict=True)
+
+        recommendations = []
+        for item in seasonal_items:
+            if item['item_code'] not in purchased_set:
+                recommendations.append({
+                    "item_code": item['item_code'],
+                    "item_name": item.get('item_name', item['item_code']),
+                    "item_group": item.get('item_group', ''),
+                    "confidence": _normalize_confidence(
+                        min(item.get('seasonal_frequency', 2) / 5.0, 1.0), tier=0
+                    ),
+                    "lift": 1.0,
+                    "reason": f"Seasonal favorite (Q{current_quarter})",
+                    "recommendation_tier": 0
+                })
+        return recommendations
+    except Exception:
+        return []
+
+
 def _get_customer_cross_sell(customer_id: str, clv_tier: str) -> List[Dict[str, Any]]:
     """Get cross-sell recommendations for a customer"""
     try:
@@ -297,6 +359,9 @@ def _get_customer_cross_sell(customer_id: str, clv_tier: str) -> List[Dict[str, 
 
         if not purchased_set:
             return []
+
+        # Priority: Seasonal recommendations first
+        seasonal_recs = _get_seasonal_recommendations(customer_id, purchased_set)
 
         # Get recommendations based on association rules
         recommendations = []
@@ -334,14 +399,22 @@ def _get_customer_cross_sell(customer_id: str, clv_tier: str) -> List[Dict[str, 
                                 "item_code": item_code,
                                 "item_name": item_info.get('item_name', item_code),
                                 "item_group": item_info.get('item_group', ''),
-                                "confidence": rule.get('confidence', 0),
+                                "confidence": _normalize_confidence(rule.get('confidence', 0), tier=1),
                                 "lift": rule.get('lift', 0),
-                                "reason": "Frequently bought together"
+                                "reason": "Frequently bought together",
+                                "recommendation_tier": 1
                             })
 
         # Remove duplicates and sort by confidence
         seen = set()
         unique_recs = []
+
+        # Add seasonal recommendations first (highest priority)
+        for rec in seasonal_recs:
+            if rec['item_code'] not in seen:
+                seen.add(rec['item_code'])
+                unique_recs.append(rec)
+
         for rec in recommendations:
             if rec['item_code'] not in seen:
                 seen.add(rec['item_code'])
@@ -360,9 +433,10 @@ def _get_customer_cross_sell(customer_id: str, clv_tier: str) -> List[Dict[str, 
                             "item_code": item2,
                             "item_name": pair.get('item2_name', item2),
                             "item_group": "",
-                            "confidence": pair.get('support', 0) * 10,  # Convert support to confidence-like score
+                            "confidence": _normalize_confidence(pair.get('support', 0), tier=2),
                             "lift": pair.get('lift', 0),
-                            "reason": "Frequently bought together"
+                            "reason": "Frequently bought together",
+                            "recommendation_tier": 2
                         })
                 elif item2 in purchased_set and item1 not in purchased_set:
                     if item1 not in seen:
@@ -371,9 +445,10 @@ def _get_customer_cross_sell(customer_id: str, clv_tier: str) -> List[Dict[str, 
                             "item_code": item1,
                             "item_name": pair.get('item1_name', item1),
                             "item_group": "",
-                            "confidence": pair.get('support', 0) * 10,
+                            "confidence": _normalize_confidence(pair.get('support', 0), tier=2),
                             "lift": pair.get('lift', 0),
-                            "reason": "Frequently bought together"
+                            "reason": "Frequently bought together",
+                            "recommendation_tier": 2
                         })
 
         # If still no recommendations, suggest popular items from customer's item groups
@@ -423,9 +498,10 @@ def _get_customer_cross_sell(customer_id: str, clv_tier: str) -> List[Dict[str, 
                                 "item_code": item['item_code'],
                                 "item_name": item.get('item_name', item['item_code']),
                                 "item_group": item.get('item_group', ''),
-                                "confidence": min(item.get('popularity', 1) / 10, 0.9),  # Normalize popularity
+                                "confidence": _normalize_confidence(min(item.get('popularity', 1) / 10.0, 1.0), tier=3),
                                 "lift": 1.0,
-                                "reason": f"Popular in {item.get('item_group', 'category')}"
+                                "reason": f"Popular in {item.get('item_group', 'category')}",
+                                "recommendation_tier": 3
                             })
 
         # Final fallback: recommend from popular item groups customer doesn't buy from
@@ -477,9 +553,10 @@ def _get_customer_cross_sell(customer_id: str, clv_tier: str) -> List[Dict[str, 
                             "item_code": item['item_code'],
                             "item_name": item.get('item_name', item['item_code']),
                             "item_group": item.get('item_group', ''),
-                            "confidence": min(item.get('popularity', 1) / 100, 0.7),
+                            "confidence": _normalize_confidence(min(item.get('popularity', 1) / 100.0, 1.0), tier=4),
                             "lift": 1.0,
-                            "reason": f"Explore {item.get('item_group', 'new category')}"
+                            "reason": f"Explore {item.get('item_group', 'new category')}",
+                            "recommendation_tier": 4
                         })
 
         unique_recs.sort(key=lambda x: x['confidence'], reverse=True)
@@ -491,7 +568,7 @@ def _get_customer_cross_sell(customer_id: str, clv_tier: str) -> List[Dict[str, 
 
 
 @frappe.whitelist()
-def get_purchase_patterns(top_percentile: int = 20) -> Dict[str, Any]:
+def get_purchase_patterns(top_percentile: int = 20, tier_filter: str = None) -> Dict[str, Any]:
     """
     Get purchase patterns for top customers by CLV
     Analyzes day-of-week, monthly, and seasonal patterns
@@ -505,10 +582,15 @@ def get_purchase_patterns(top_percentile: int = 20) -> Dict[str, Any]:
     if not customers:
         return {"status": "error", "message": "No customer data available"}
 
-    # Filter to top percentile by CLV
-    customers_sorted = sorted(customers, key=lambda x: x.get('historical_clv', 0), reverse=True)
-    top_count = max(1, int(len(customers_sorted) * top_percentile / 100))
-    top_customers = customers_sorted[:top_count]
+    # Filter customers by tier or top percentile by CLV
+    if tier_filter:
+        tiers = [t.strip() for t in tier_filter.split(',')]
+        top_customers = [c for c in customers if c.get('clv_tier') in tiers]
+    else:
+        customers_sorted = sorted(customers, key=lambda x: x.get('historical_clv', 0), reverse=True)
+        top_count = max(1, int(len(customers_sorted) * top_percentile / 100))
+        top_customers = customers_sorted[:top_count]
+
     top_customer_ids = [c['customer_id'] for c in top_customers]
 
     # Get transactions for top customers
@@ -611,7 +693,7 @@ def get_purchase_patterns(top_percentile: int = 20) -> Dict[str, Any]:
 
 
 @frappe.whitelist()
-def get_cross_sell_opportunities(tier_filter: str = "Diamond,Platinum") -> Dict[str, Any]:
+def get_cross_sell_opportunities(tier_filter: str = "Diamond,Platinum,Gold") -> Dict[str, Any]:
     """
     Get cross-sell opportunities for customers in specified CLV tiers
     """

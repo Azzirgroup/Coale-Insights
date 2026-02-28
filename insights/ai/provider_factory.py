@@ -1,0 +1,73 @@
+# Copyright (c) 2025, Frappe Technologies Pvt. Ltd. and contributors
+# For license information, please see license.txt
+
+"""
+AI Provider Factory
+Returns the configured AI provider based on Insights Settings
+"""
+
+import frappe
+from typing import Optional
+from insights.ai.base_provider import BaseAIProvider
+
+
+class AIProviderFactory:
+    """Factory that returns the configured AI provider"""
+
+    _providers = {}
+
+    @classmethod
+    def register(cls, name: str, provider_class):
+        """Register a provider class"""
+        cls._providers[name] = provider_class
+
+    @classmethod
+    def get_provider(cls, provider_name: Optional[str] = None) -> BaseAIProvider:
+        """Get a specific provider by name"""
+        if not provider_name:
+            settings = frappe.get_single("Insights Settings")
+            provider_name = getattr(settings, "ai_provider", None) or "openrouter"
+
+        if provider_name not in cls._providers:
+            # Lazy-load providers
+            cls._ensure_providers_registered()
+
+        provider_class = cls._providers.get(provider_name)
+        if not provider_class:
+            raise ValueError(f"Unknown AI provider: {provider_name}. Available: {list(cls._providers.keys())}")
+        return provider_class()
+
+    @classmethod
+    def get_client(cls) -> BaseAIProvider:
+        """Get the currently configured provider. Drop-in replacement for OpenRouterClient()"""
+        return cls.get_provider()
+
+    @classmethod
+    def _ensure_providers_registered(cls):
+        """Lazy-register all known providers"""
+        if "openrouter" not in cls._providers:
+            from insights.ai.openrouter_client import OpenRouterClient
+            cls.register("openrouter", OpenRouterClient)
+        if "ollama" not in cls._providers:
+            try:
+                from insights.ai.ollama_client import OllamaClient
+                cls.register("ollama", OllamaClient)
+            except ImportError:
+                pass
+
+    @classmethod
+    def get_available_providers(cls) -> dict:
+        """Get list of available providers and their status"""
+        cls._ensure_providers_registered()
+        result = {}
+        for name, provider_class in cls._providers.items():
+            try:
+                provider = provider_class()
+                result[name] = {
+                    "name": name,
+                    "enabled": provider.is_enabled(),
+                    "provider_name": provider.provider_name
+                }
+            except Exception:
+                result[name] = {"name": name, "enabled": False, "provider_name": name}
+        return result

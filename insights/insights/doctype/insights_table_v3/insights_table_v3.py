@@ -8,7 +8,7 @@ import frappe
 from frappe.model.document import Document
 from frappe.permissions import get_valid_perms
 
-from insights import create_toast
+from insights.utils import create_toast
 from insights.insights.doctype.insights_data_source_v3.data_warehouse import Warehouse
 from insights.utils import InsightsDataSourcev3
 

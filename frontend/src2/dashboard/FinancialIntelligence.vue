@@ -946,6 +946,7 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ name: 'FinancialIntelligence' })
 import { ref, computed, onMounted, watch } from 'vue'
 import { Button, createResource } from 'frappe-ui'
 import { useRouter } from 'vue-router'

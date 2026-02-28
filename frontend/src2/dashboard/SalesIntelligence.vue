@@ -1,4 +1,5 @@
 <script setup lang="ts">
+defineOptions({ name: 'SalesIntelligence' })
 import { Breadcrumbs } from 'frappe-ui'
 import { apiCall } from '../helpers/api'
 import { 

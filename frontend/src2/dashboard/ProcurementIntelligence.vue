@@ -715,6 +715,7 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ name: 'ProcurementIntelligence' })
 import { ref, computed, onMounted } from 'vue'
 import { Button, createResource } from 'frappe-ui'
 import { useRouter } from 'vue-router'

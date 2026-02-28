@@ -164,13 +164,8 @@ scheduler_events = {
         "insights.api.data_store.sync_tables",
         "insights.analytics.ml_engine.refresh_all_dashboards",
         "insights.analytics.ml_engine.reset_ai_quota",
-        # ML Model Training - Daily
-        "insights.ml.scheduler.train_customer_segmentation",
-        "insights.ml.scheduler.train_sales_forecast",
-        "insights.ml.scheduler.train_payment_prediction",
-        "insights.ml.scheduler.train_customer_intelligence",
-        "insights.ml.scheduler.train_sales_intelligence",
-        # AI Proactive Insights (TODO: implement)
+        # Single daily intelligence job: trains all models + warms executive cache
+        "insights.ml.scheduler.run_daily_intelligence",
         # Executive Reports - Daily
         "insights.reports.executive_reports.generate_daily_executive_report",
     ],

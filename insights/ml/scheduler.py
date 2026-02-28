@@ -231,10 +231,46 @@ def _send_reorder_alert(forecast_result: dict):
         frappe.log_error(f"Failed to send reorder alert: {str(e)}", "ML Scheduler")
 
 
+def run_daily_intelligence():
+    """Single daily job: trains all daily models and warms executive cache.
+
+    Replaces individual scheduler entries for better coordination.
+    """
+    results = {}
+
+    daily_tasks = [
+        ("customer_segmentation", train_customer_segmentation),
+        ("sales_forecast", train_sales_forecast),
+        ("payment_prediction", train_payment_prediction),
+        ("customer_intelligence", train_customer_intelligence),
+        ("sales_intelligence", train_sales_intelligence),
+    ]
+
+    for name, fn in daily_tasks:
+        try:
+            results[name] = fn()
+        except Exception as e:
+            frappe.log_error(f"Daily intelligence {name} failed: {str(e)}", "ML Scheduler")
+            results[name] = {"status": "error", "message": str(e)}
+
+    # Warm executive intelligence cache after all modules are trained
+    try:
+        from insights.ml.executive_intelligence import ExecutiveIntelligence
+        executive = ExecutiveIntelligence()
+        for period in ["MTD", "QTD", "YTD", "TTM"]:
+            executive.get_executive_summary(period)
+        frappe.logger().info("Executive intelligence cache warmed for all periods")
+    except Exception as e:
+        frappe.log_error(f"Executive cache warmup failed: {str(e)}", "ML Scheduler")
+
+    frappe.logger().info(f"Daily intelligence completed: {len(results)} models trained")
+    return results
+
+
 def run_all_ml_models():
     """Run all ML models - can be triggered manually"""
     results = {}
-    
+
     results['customer_segmentation'] = train_customer_segmentation()
     results['sales_forecast'] = train_sales_forecast()
     results['payment_prediction'] = train_payment_prediction()
@@ -242,9 +278,9 @@ def run_all_ml_models():
     results['demand_forecast'] = train_demand_forecast()
     results['product_recommendations'] = train_product_recommendations()
     results['customer_intelligence'] = train_customer_intelligence()
-    
+
     frappe.logger().info("All ML models training completed")
-    
+
     return results
 
 

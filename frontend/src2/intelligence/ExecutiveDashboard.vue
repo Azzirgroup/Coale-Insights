@@ -98,14 +98,15 @@
               <div
                 v-for="(score, department) in businessHealth.department_scores"
                 :key="department"
-                class="text-center"
+                class="text-center cursor-pointer hover:bg-gray-50 rounded-lg p-2 transition-colors"
+                @click="departmentRoutes[department] && router.push(departmentRoutes[department])"
               >
                 <div class="text-sm font-medium text-gray-500 capitalize">{{ department }}</div>
                 <div class="mt-1">
-                  <div :class="getHealthScoreColor(score)" class="text-lg font-bold">{{ score }}%</div>
-                  <div :class="'w-full h-2 bg-gray-200 rounded-full mt-1'">
+                  <div :class="getHealthScoreColor(score)" class="text-lg font-bold">{{ Math.round(score) }}%</div>
+                  <div class="w-full h-2 bg-gray-200 rounded-full mt-1">
                     <div
-                      :class="getHealthScoreColor(score) + ' h-full rounded-full transition-all'"
+                      :class="[getHealthScoreBgColor(score), 'h-full rounded-full transition-all']"
                       :style="`width: ${score}%`"
                     ></div>
                   </div>
@@ -153,269 +154,48 @@
       <!-- Executive KPIs Grid -->
       <div class="px-6 mb-6">
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-6">
-          <!-- Financial KPIs -->
-          <div v-if="kpis.financial && !kpis.financial.error" class="space-y-4">
-            <h3 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <DollarSign class="w-5 h-5 text-green-600" />
-              Financial
+          <div
+            v-for="dept in departmentColumns"
+            :key="dept.key"
+            v-show="kpis[dept.key] && !kpis[dept.key].error"
+            class="space-y-4"
+          >
+            <h3
+              class="text-lg font-semibold text-gray-900 flex items-center gap-2 cursor-pointer hover:text-blue-600 transition-colors"
+              @click="router.push(departmentRoutes[dept.key])"
+            >
+              <component :is="dept.icon" :class="['w-5 h-5', dept.iconColor]" />
+              {{ dept.label }}
             </h3>
             <template
-              v-for="(kpi, key) in kpis.financial"
-              :key="'financial' + key"
+              v-for="(kpi, key, kpiIndex) in kpis[dept.key]"
+              :key="dept.key + key"
             >
-            <div
-              v-if="kpi && typeof kpi === 'object' && !kpi.error"
-              class="bg-white p-4 rounded-lg shadow-sm border"
-            >
-              <div class="flex items-center justify-between mb-2">
-                <div class="text-sm font-medium text-gray-500">{{ kpi.label }}</div>
-                <div :class="'w-3 h-3 rounded-full ' + getRagColor(kpi.rag_status)"></div>
+              <div
+                v-if="kpi && typeof kpi === 'object' && !kpi.error"
+                class="bg-white p-4 rounded-lg shadow-sm border"
+              >
+                <div class="flex items-center justify-between mb-2">
+                  <div class="text-sm font-medium text-gray-500">{{ kpi.label }}</div>
+                  <div :class="'w-3 h-3 rounded-full ' + getRagColor(kpi.rag_status)"></div>
+                </div>
+                <div class="text-2xl font-bold text-gray-900">
+                  {{ formatKpiValue(kpi.value, kpi.format) }}
+                </div>
+                <div v-if="getKpiVariance(kpi) !== null" :class="getVarianceColor(getKpiVariance(kpi), dept.reverseVariance)" class="text-sm mt-1">
+                  {{ getKpiVariance(kpi) >= 0 ? '&#8593;' : '&#8595;' }} {{ Math.abs(getKpiVariance(kpi)).toFixed(1) }}% vs target
+                </div>
+                <div v-if="getTrendData((departmentTrendKeys[dept.key] || [])[kpiIndex] || '').length > 1" class="mt-2">
+                  <svg class="w-full h-8" viewBox="0 0 100 20">
+                    <path
+                      :d="generateSparkline(getTrendData((departmentTrendKeys[dept.key] || [])[kpiIndex] || ''))"
+                      fill="none"
+                      :stroke="kpi.rag_status === 'green' ? '#10b981' : kpi.rag_status === 'amber' ? '#f59e0b' : '#ef4444'"
+                      stroke-width="1"
+                    />
+                  </svg>
+                </div>
               </div>
-              <div class="text-2xl font-bold text-gray-900">
-                {{ formatKpiValue(kpi.value, kpi.format) }}
-              </div>
-              <div v-if="kpi.variance_pct !== undefined" :class="getVarianceColor(kpi.variance_pct)" class="text-sm mt-1">
-                {{ kpi.variance_pct >= 0 ? '&#8593;' : '&#8595;' }} {{ Math.abs(kpi.variance_pct).toFixed(1) }}% vs target
-              </div>
-              <div v-if="getTrendData('revenue').length > 1" class="mt-2">
-                <svg class="w-full h-8" viewBox="0 0 100 20">
-                  <path
-                    :d="generateSparkline(getTrendData('revenue'))"
-                    fill="none"
-                    :stroke="getVarianceColor(kpi.variance_pct).includes('green') ? '#10b981' : '#ef4444'"
-                    stroke-width="1"
-                  />
-                </svg>
-              </div>
-            </div>
-            </template>
-          </div>
-
-          <!-- Sales KPIs -->
-          <div v-if="kpis.sales && !kpis.sales.error" class="space-y-4">
-            <h3 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <TrendingUp class="w-5 h-5 text-blue-600" />
-              Sales
-            </h3>
-            <template
-              v-for="(kpi, key) in kpis.sales"
-              :key="'sales' + key"
-            >
-            <div
-              v-if="kpi && typeof kpi === 'object' && !kpi.error"
-              class="bg-white p-4 rounded-lg shadow-sm border"
-            >
-              <div class="flex items-center justify-between mb-2">
-                <div class="text-sm font-medium text-gray-500">{{ kpi.label }}</div>
-                <div :class="'w-3 h-3 rounded-full ' + getRagColor(kpi.rag_status)"></div>
-              </div>
-              <div class="text-2xl font-bold text-gray-900">
-                {{ formatKpiValue(kpi.value, kpi.format) }}
-              </div>
-              <div v-if="kpi.variance_pct !== undefined" :class="getVarianceColor(kpi.variance_pct)" class="text-sm mt-1">
-                {{ kpi.variance_pct >= 0 ? '&#8593;' : '&#8595;' }} {{ Math.abs(kpi.variance_pct).toFixed(1) }}% vs target
-              </div>
-              <div v-if="getTrendData('sales_growth').length > 1" class="mt-2">
-                <svg class="w-full h-8" viewBox="0 0 100 20">
-                  <path
-                    :d="generateSparkline(getTrendData('sales_growth'))"
-                    fill="none"
-                    :stroke="getVarianceColor(kpi.variance_pct).includes('green') ? '#10b981' : '#ef4444'"
-                    stroke-width="1"
-                  />
-                </svg>
-              </div>
-            </div>
-            </template>
-          </div>
-
-          <!-- Customer KPIs -->
-          <div v-if="kpis.customer && !kpis.customer.error" class="space-y-4">
-            <h3 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <Users class="w-5 h-5 text-purple-600" />
-              Customer
-            </h3>
-            <template
-              v-for="(kpi, key) in kpis.customer"
-              :key="'customer' + key"
-            >
-            <div
-              v-if="kpi && typeof kpi === 'object' && !kpi.error"
-              class="bg-white p-4 rounded-lg shadow-sm border"
-            >
-              <div class="flex items-center justify-between mb-2">
-                <div class="text-sm font-medium text-gray-500">{{ kpi.label }}</div>
-                <div :class="'w-3 h-3 rounded-full ' + getRagColor(kpi.rag_status)"></div>
-              </div>
-              <div class="text-2xl font-bold text-gray-900">
-                {{ formatKpiValue(kpi.value, kpi.format) }}
-              </div>
-              <div v-if="kpi.variance_pct !== undefined" :class="getVarianceColor(kpi.variance_pct)" class="text-sm mt-1">
-                {{ kpi.variance_pct >= 0 ? '&#8595;' : '&#8593;' }} {{ Math.abs(kpi.variance_pct).toFixed(1) }}% vs target
-              </div>
-              <div v-if="getTrendData('churn_rate').length > 1" class="mt-2">
-                <svg class="w-full h-8" viewBox="0 0 100 20">
-                  <path
-                    :d="generateSparkline(getTrendData('churn_rate'))"
-                    fill="none"
-                    :stroke="getVarianceColor(kpi.variance_pct).includes('green') ? '#10b981' : '#ef4444'"
-                    stroke-width="1"
-                  />
-                </svg>
-              </div>
-            </div>
-            </template>
-          </div>
-
-          <!-- Operations KPIs -->
-          <div v-if="kpis.operations && !kpis.operations.error" class="space-y-4">
-            <h3 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <Settings class="w-5 h-5 text-orange-600" />
-              Operations
-            </h3>
-            <template
-              v-for="(kpi, key) in kpis.operations"
-              :key="'operations' + key"
-            >
-            <div
-              v-if="kpi && typeof kpi === 'object' && !kpi.error"
-              class="bg-white p-4 rounded-lg shadow-sm border"
-            >
-              <div class="flex items-center justify-between mb-2">
-                <div class="text-sm font-medium text-gray-500">{{ kpi.label }}</div>
-                <div :class="'w-3 h-3 rounded-full ' + getRagColor(kpi.rag_status)"></div>
-              </div>
-              <div class="text-2xl font-bold text-gray-900">
-                {{ formatKpiValue(kpi.value, kpi.format) }}
-              </div>
-              <div v-if="kpi.variance_pct !== undefined" :class="getVarianceColor(kpi.variance_pct)" class="text-sm mt-1">
-                {{ kpi.variance_pct >= 0 ? '&#8595;' : '&#8593;' }} {{ Math.abs(kpi.variance_pct).toFixed(1) }}% vs target
-              </div>
-              <div v-if="getTrendData('inventory_turns').length > 1" class="mt-2">
-                <svg class="w-full h-8" viewBox="0 0 100 20">
-                  <path
-                    :d="generateSparkline(getTrendData('inventory_turns'))"
-                    fill="none"
-                    :stroke="getVarianceColor(kpi.variance_pct).includes('green') ? '#10b981' : '#ef4444'"
-                    stroke-width="1"
-                  />
-                </svg>
-              </div>
-            </div>
-            </template>
-          </div>
-
-          <!-- Risk KPIs -->
-          <div v-if="kpis.risk && !kpis.risk.error" class="space-y-4">
-            <h3 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <Shield class="w-5 h-5 text-red-600" />
-              Risk
-            </h3>
-            <template
-              v-for="(kpi, key) in kpis.risk"
-              :key="'risk' + key"
-            >
-            <div
-              v-if="kpi && typeof kpi === 'object' && !kpi.error"
-              class="bg-white p-4 rounded-lg shadow-sm border"
-            >
-              <div class="flex items-center justify-between mb-2">
-                <div class="text-sm font-medium text-gray-500">{{ kpi.label }}</div>
-                <div :class="'w-3 h-3 rounded-full ' + getRagColor(kpi.rag_status)"></div>
-              </div>
-              <div class="text-2xl font-bold text-gray-900">
-                {{ formatKpiValue(kpi.value, kpi.format) }}
-              </div>
-              <div v-if="kpi.variance_pct !== undefined" :class="getVarianceColor(kpi.variance_pct, true)" class="text-sm mt-1">
-                {{ kpi.variance_pct >= 0 ? '&#8593;' : '&#8595;' }} {{ Math.abs(kpi.variance_pct).toFixed(1) }}% vs target
-              </div>
-              <div v-if="getTrendData('credit_risk').length > 1" class="mt-2">
-                <svg class="w-full h-8" viewBox="0 0 100 20">
-                  <path
-                    :d="generateSparkline(getTrendData('credit_risk'))"
-                    fill="none"
-                    :stroke="getVarianceColor(kpi.variance_pct, true).includes('green') ? '#10b981' : '#ef4444'"
-                    stroke-width="1"
-                  />
-                </svg>
-              </div>
-            </div>
-            </template>
-          </div>
-
-          <!-- HR KPIs -->
-          <div v-if="kpis.hr && !kpis.hr.error" class="space-y-4">
-            <h3 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <UserCog class="w-5 h-5 text-indigo-600" />
-              HR
-            </h3>
-            <template
-              v-for="(kpi, key) in kpis.hr"
-              :key="'hr' + key"
-            >
-            <div
-              v-if="kpi && typeof kpi === 'object' && !kpi.error"
-              class="bg-white p-4 rounded-lg shadow-sm border"
-            >
-              <div class="flex items-center justify-between mb-2">
-                <div class="text-sm font-medium text-gray-500">{{ kpi.label }}</div>
-                <div :class="'w-3 h-3 rounded-full ' + getRagColor(kpi.rag_status)"></div>
-              </div>
-              <div class="text-2xl font-bold text-gray-900">
-                {{ formatKpiValue(kpi.value, kpi.format) }}
-              </div>
-              <div v-if="kpi.variance_pct !== undefined" :class="getVarianceColor(kpi.variance_pct)" class="text-sm mt-1">
-                {{ kpi.variance_pct >= 0 ? '&#8593;' : '&#8595;' }} {{ Math.abs(kpi.variance_pct).toFixed(1) }}% vs target
-              </div>
-              <div v-if="getTrendData('headcount').length > 1" class="mt-2">
-                <svg class="w-full h-8" viewBox="0 0 100 20">
-                  <path
-                    :d="generateSparkline(getTrendData('headcount'))"
-                    fill="none"
-                    :stroke="getVarianceColor(kpi.variance_pct).includes('green') ? '#10b981' : '#ef4444'"
-                    stroke-width="1"
-                  />
-                </svg>
-              </div>
-            </div>
-            </template>
-          </div>
-
-          <!-- Manufacturing KPIs -->
-          <div v-if="kpis.manufacturing && !kpis.manufacturing.error" class="space-y-4">
-            <h3 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <Factory class="w-5 h-5 text-teal-600" />
-              Manufacturing
-            </h3>
-            <template
-              v-for="(kpi, key) in kpis.manufacturing"
-              :key="'manufacturing' + key"
-            >
-            <div
-              v-if="kpi && typeof kpi === 'object' && !kpi.error"
-              class="bg-white p-4 rounded-lg shadow-sm border"
-            >
-              <div class="flex items-center justify-between mb-2">
-                <div class="text-sm font-medium text-gray-500">{{ kpi.label }}</div>
-                <div :class="'w-3 h-3 rounded-full ' + getRagColor(kpi.rag_status)"></div>
-              </div>
-              <div class="text-2xl font-bold text-gray-900">
-                {{ formatKpiValue(kpi.value, kpi.format) }}
-              </div>
-              <div v-if="kpi.variance_pct !== undefined" :class="getVarianceColor(kpi.variance_pct)" class="text-sm mt-1">
-                {{ kpi.variance_pct >= 0 ? '&#8593;' : '&#8595;' }} {{ Math.abs(kpi.variance_pct).toFixed(1) }}% vs target
-              </div>
-              <div v-if="getTrendData('oee').length > 1" class="mt-2">
-                <svg class="w-full h-8" viewBox="0 0 100 20">
-                  <path
-                    :d="generateSparkline(getTrendData('oee'))"
-                    fill="none"
-                    :stroke="getVarianceColor(kpi.variance_pct).includes('green') ? '#10b981' : '#ef4444'"
-                    stroke-width="1"
-                  />
-                </svg>
-              </div>
-            </div>
             </template>
           </div>
         </div>
@@ -481,6 +261,7 @@
 </template>
 
 <script setup>
+defineOptions({ name: 'ExecutiveDashboard' })
 import { ref, computed, onMounted } from 'vue'
 import {
   RefreshCw,
@@ -514,6 +295,16 @@ const businessHealth = computed(() => data.value?.business_health_score || {})
 const alerts = computed(() => data.value?.alerts || [])
 const kpis = computed(() => data.value?.kpis || {})
 const trends = computed(() => data.value?.trends || {})
+
+const departmentColumns = computed(() => [
+  { key: 'financial', label: 'Financial', icon: DollarSign, iconColor: 'text-green-600', reverseVariance: false },
+  { key: 'sales', label: 'Sales', icon: TrendingUp, iconColor: 'text-blue-600', reverseVariance: false },
+  { key: 'customer', label: 'Customer', icon: Users, iconColor: 'text-purple-600', reverseVariance: false },
+  { key: 'operations', label: 'Operations', icon: Settings, iconColor: 'text-orange-600', reverseVariance: false },
+  { key: 'risk', label: 'Risk', icon: Shield, iconColor: 'text-red-600', reverseVariance: true },
+  { key: 'hr', label: 'HR', icon: UserCog, iconColor: 'text-indigo-600', reverseVariance: false },
+  { key: 'manufacturing', label: 'Manufacturing', icon: Factory, iconColor: 'text-teal-600', reverseVariance: false },
+])
 
 onMounted(() => {
   loadData()
@@ -582,6 +373,36 @@ function getHealthScoreColor(score) {
   if (score >= 80) return 'text-green-600'
   if (score >= 60) return 'text-yellow-600'
   return 'text-red-600'
+}
+
+function getHealthScoreBgColor(score) {
+  if (score >= 80) return 'bg-green-500'
+  if (score >= 60) return 'bg-yellow-500'
+  return 'bg-red-500'
+}
+
+function getKpiVariance(kpi) {
+  return kpi.variance_pct ?? kpi.variance_points ?? kpi.variance_ratio ?? kpi.variance_weeks ?? kpi.variance_turns ?? null
+}
+
+const departmentRoutes = {
+  financial: '/financial-intelligence',
+  sales: '/sales-intelligence',
+  customer: '/customer-intelligence',
+  operations: '/inventory-intelligence',
+  risk: '/risk-intelligence',
+  hr: '/hr-intelligence',
+  manufacturing: '/manufacturing-intelligence',
+}
+
+const departmentTrendKeys = {
+  financial: ['revenue', 'margin', 'revenue'],
+  sales: ['sales_growth', 'sales_growth', 'sales_growth'],
+  customer: ['churn_rate', 'churn_rate', 'churn_rate'],
+  operations: ['inventory_turns', 'inventory_turns', 'inventory_turns'],
+  risk: ['credit_risk', 'credit_risk', 'credit_risk'],
+  hr: ['headcount', 'headcount', 'headcount'],
+  manufacturing: ['oee', 'oee', 'oee'],
 }
 
 function getRagColor(status) {

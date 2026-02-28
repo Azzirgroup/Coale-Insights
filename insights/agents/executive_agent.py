@@ -10,7 +10,8 @@ dashboard agents (model fallback, quota, config, etc.).
 
 from typing import Dict, List, Optional
 
-from insights.agents import BaseIntelligenceAgent, AgentRegistry
+from insights.agents.base import BaseIntelligenceAgent
+from insights.agents.registry import AgentRegistry
 
 
 @AgentRegistry.register("Executive")

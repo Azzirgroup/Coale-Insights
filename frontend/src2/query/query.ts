@@ -498,7 +498,7 @@ export function makeQuery(name: string) {
             downloading.value = true
             const token = Date.now() + Math.random()
             currentDownloadToken.value = token
-            return call('insights.api.run_doc_method', {
+            return call('insights.api.documents.run_doc_method', {
                 method: 'download_results',
                 docs: {
                     ...(query.doc || {}),

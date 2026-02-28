@@ -195,9 +195,9 @@ class AIModelRouter:
     
     def _execute_request(self, task: TaskRequest, model: ModelType) -> str:
         """Execute AI request with selected model"""
-        from insights.ai.openrouter_client import OpenRouterClient
-        
-        client = OpenRouterClient()
+        from insights.ai.provider_factory import AIProviderFactory
+
+        client = AIProviderFactory.get_client()
         
         # Optimize prompt based on model capabilities
         optimized_prompt = self._optimize_prompt(task.query, model, task.context)

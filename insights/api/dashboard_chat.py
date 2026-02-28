@@ -17,7 +17,7 @@ from frappe.utils import now_datetime, get_datetime, time_diff_in_hours
 # to match what the frontend DashboardChatButton.vue expects.
 
 # Import agents — all agents now extend BaseIntelligenceAgent
-from insights.agents import AgentRegistry
+from insights.agents.registry import AgentRegistry
 from insights.agents.query_router import route_query, get_query_router
 from insights.agents.sales_agent import SalesIntelligenceAgent
 from insights.agents.risk_agent import RiskIntelligenceAgent
@@ -685,8 +685,8 @@ def send_message_streaming(session_id=None, query=None, context=None):
 
     try:
         # Try streaming via OpenRouter directly
-        from insights.ai.openrouter_client import OpenRouterClient
-        client = OpenRouterClient()
+        from insights.ai.provider_factory import AIProviderFactory
+        client = AIProviderFactory.get_client()
 
         if not client.is_enabled() or not client.check_quota():
             # Fallback to non-streaming

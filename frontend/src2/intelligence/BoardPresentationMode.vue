@@ -276,6 +276,7 @@
 </template>
 
 <script setup>
+defineOptions({ name: 'BoardPresentationMode' })
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import {
   Button,

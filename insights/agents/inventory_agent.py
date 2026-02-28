@@ -8,7 +8,8 @@ Specialized AI agent for Inventory dashboard insights
 
 from typing import Dict, List, Optional
 
-from insights.agents import BaseIntelligenceAgent, AgentRegistry
+from insights.agents.base import BaseIntelligenceAgent
+from insights.agents.registry import AgentRegistry
 
 
 @AgentRegistry.register("Inventory")
@@ -61,9 +62,14 @@ class InventoryIntelligenceAgent(BaseIntelligenceAgent):
         }
         
         if "low_stock_items" in context:
-            critical["low_stock"] = context["low_stock_items"][:5]
+            raw = context["low_stock_items"]
+            critical["low_stock"] = raw[:5] if isinstance(raw, list) else [{"count": raw}]
         if "out_of_stock" in context:
-            critical["out_of_stock"] = context["out_of_stock"][:5]
+            raw = context["out_of_stock"]
+            critical["out_of_stock"] = raw[:5] if isinstance(raw, list) else [{"count": raw}]
+        if "out_of_stock_items" in context:
+            raw = context["out_of_stock_items"]
+            critical["out_of_stock"] = raw[:5] if isinstance(raw, list) else [{"count": raw}]
         if "excess_stock" in context:
             critical["excess_stock"] = context["excess_stock"][:5]
         if "slow_moving" in context or "dead_stock" in context:

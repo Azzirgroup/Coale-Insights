@@ -221,3 +221,17 @@ def guarded_task(func):
         except ImportError as e:
             frappe.log_error(f"Skipping {func.__name__}: {e}")
     return wrapper
+
+
+def create_toast(message, title=None, type="info", duration=5):
+    """Publish a toast notification to the current user via realtime."""
+    frappe.publish_realtime(
+        "insightsToast",
+        {"message": message, "title": title, "type": type, "duration": duration},
+        user=frappe.session.user,
+    )
+
+
+def notify(*args, **kwargs):
+    """Alias for create_toast for backward compatibility."""
+    create_toast(*args, **kwargs)

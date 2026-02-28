@@ -704,6 +704,7 @@
 </template>
 
 <script setup>
+defineOptions({ name: 'RiskIntelligence' })
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { Button } from 'frappe-ui'
 import { apiCall } from '../helpers/api'

@@ -12,7 +12,8 @@ from frappe import _
 from frappe.utils import nowdate, now_datetime, cint, flt
 from typing import Dict, Any, List, Optional
 
-from insights.ai.openrouter_client import OpenRouterClient, get_ai_status
+from insights.ai.provider_factory import AIProviderFactory
+from insights.ai.openrouter_client import get_ai_status
 from insights.analytics.data_collectors import get_collector, get_all_analytics_data
 
 
@@ -60,7 +61,7 @@ class MLAnalyticsEngine:
     
     def __init__(self, filters: Optional[Dict] = None):
         self.filters = filters or {}
-        self.ai_client = OpenRouterClient()
+        self.ai_client = AIProviderFactory.get_client()
         
     def get_dashboard_data(self, dashboard_type: str) -> Dict[str, Any]:
         """
@@ -595,7 +596,7 @@ def refresh_all_dashboards():
     
     # Reset daily quota
     from insights.ai.openrouter_client import OpenRouterClient
-    client = OpenRouterClient()
+    client = OpenRouterClient()  # Reset quota uses OpenRouter directly (settings writer)
     client.reset_daily_quota()
 
 

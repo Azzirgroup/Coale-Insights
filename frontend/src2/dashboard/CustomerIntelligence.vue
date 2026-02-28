@@ -1,4 +1,5 @@
 <script setup lang="ts">
+defineOptions({ name: 'CustomerIntelligence' })
 import { Breadcrumbs, FormControl } from 'frappe-ui'
 import { apiCall } from '../helpers/api'
 import { 
@@ -21,6 +22,17 @@ import {
 } from '../utils/customerUtils'
 
 const router = useRouter()
+
+// Recommendation tier helpers
+const recTierConfig: Record<number, { label: string; style: string }> = {
+  0: { label: 'Seasonal', style: 'bg-purple-100 text-purple-700' },
+  1: { label: 'Rules', style: 'bg-blue-100 text-blue-700' },
+  2: { label: 'FBT', style: 'bg-teal-100 text-teal-700' },
+  3: { label: 'Popular', style: 'bg-amber-100 text-amber-700' },
+  4: { label: 'Explore', style: 'bg-gray-100 text-gray-600' },
+}
+function getRecTierLabel(tier: number) { return recTierConfig[tier]?.label || `Tier ${tier}` }
+function getRecTierStyle(tier: number) { return recTierConfig[tier]?.style || 'bg-gray-100 text-gray-600' }
 
 // State
 const isLoading = ref(true)
@@ -119,7 +131,7 @@ async function loadCrossSellData() {
   isLoadingCrossSell.value = true
   try {
     crossSellData.value = await apiCall('insights.api.ml.cross_sell_opportunities', {
-      tier_filter: 'Diamond,Platinum'
+      tier_filter: 'Diamond,Platinum,Gold'
     })
   } catch (e: any) {
     console.error('Failed to load cross-sell data:', e)
@@ -814,12 +826,18 @@ onMounted(() => {
                 </div>
                 
                 <div class="flex flex-wrap gap-2">
-                  <div 
-                    v-for="rec in opp.recommendations" 
+                  <div
+                    v-for="rec in opp.recommendations"
                     :key="rec.item_code"
                     class="px-3 py-2 bg-green-50 rounded-lg border border-green-200"
                   >
-                    <p class="text-sm font-medium text-green-800">{{ rec.item_code }}</p>
+                    <div class="flex items-center gap-1.5">
+                      <p class="text-sm font-medium text-green-800">{{ rec.item_code }}</p>
+                      <span
+                        v-if="rec.recommendation_tier !== undefined"
+                        :class="['px-1.5 py-0.5 text-[10px] font-medium rounded', getRecTierStyle(rec.recommendation_tier)]"
+                      >{{ getRecTierLabel(rec.recommendation_tier) }}</span>
+                    </div>
                     <p class="text-xs text-green-600">{{ (rec.confidence * 100).toFixed(0) }}% confidence</p>
                   </div>
                 </div>

@@ -19,7 +19,7 @@ class TestAgentRegistry(FrappeTestCase):
         import insights.agents.tax_agent
         import insights.agents.general_agent
 
-        from insights.agents import AgentRegistry
+        from insights.agents.registry import AgentRegistry
 
         dashboard_types = AgentRegistry.get_all_dashboard_types()
         self.assertGreater(len(dashboard_types), 0)
@@ -35,7 +35,8 @@ class TestAgentRegistry(FrappeTestCase):
     def test_get_agent_returns_instance(self):
         """Test that get_agent returns a valid agent instance"""
         import insights.agents.sales_agent
-        from insights.agents import AgentRegistry, BaseIntelligenceAgent
+        from insights.agents.base import BaseIntelligenceAgent
+        from insights.agents.registry import AgentRegistry
 
         agent = AgentRegistry.get_agent("Sales")
         self.assertIsNotNone(agent)
@@ -43,7 +44,7 @@ class TestAgentRegistry(FrappeTestCase):
 
     def test_get_agent_unknown_type_returns_none(self):
         """Test that get_agent returns None for unknown dashboard types"""
-        from insights.agents import AgentRegistry
+        from insights.agents.registry import AgentRegistry
 
         agent = AgentRegistry.get_agent("NonexistentDashboard")
         self.assertIsNone(agent)
@@ -55,7 +56,7 @@ class TestBaseIntelligenceAgent(FrappeTestCase):
     def _get_agent(self):
         """Helper to get a concrete agent instance"""
         import insights.agents.general_agent
-        from insights.agents import AgentRegistry
+        from insights.agents.registry import AgentRegistry
         return AgentRegistry.get_agent("General")
 
     def test_agent_has_required_attributes(self):
@@ -182,7 +183,7 @@ class TestSpecializedAgents(FrappeTestCase):
 
     def test_all_agents_instantiate(self):
         """Test that all registered agents can be instantiated"""
-        from insights.agents import AgentRegistry
+        from insights.agents.registry import AgentRegistry
 
         for agent_type in self.AGENT_TYPES:
             agent = AgentRegistry.get_agent(agent_type)
@@ -191,7 +192,7 @@ class TestSpecializedAgents(FrappeTestCase):
 
     def test_all_agents_have_unique_keywords(self):
         """Test that agent routing keywords don't conflict"""
-        from insights.agents import AgentRegistry
+        from insights.agents.registry import AgentRegistry
 
         all_keywords = {}
         for agent_type in self.AGENT_TYPES:
@@ -211,7 +212,7 @@ class TestSpecializedAgents(FrappeTestCase):
 
     def test_all_agents_provide_quick_actions(self):
         """Test that all agents provide quick actions"""
-        from insights.agents import AgentRegistry
+        from insights.agents.registry import AgentRegistry
 
         for agent_type in self.AGENT_TYPES:
             agent = AgentRegistry.get_agent(agent_type)
@@ -221,7 +222,7 @@ class TestSpecializedAgents(FrappeTestCase):
     @patch('insights.ai.openrouter_client.OpenRouterClient')
     def test_agent_execute_disabled(self, mock_client_class):
         """Test agent execute when AI is disabled"""
-        from insights.agents import AgentRegistry
+        from insights.agents.registry import AgentRegistry
 
         mock_client = MagicMock()
         mock_client.is_enabled.return_value = False
@@ -236,7 +237,7 @@ class TestSpecializedAgents(FrappeTestCase):
     @patch('insights.ai.openrouter_client.OpenRouterClient')
     def test_agent_execute_quota_exceeded(self, mock_client_class):
         """Test agent execute when quota is exceeded"""
-        from insights.agents import AgentRegistry
+        from insights.agents.registry import AgentRegistry
 
         mock_client = MagicMock()
         mock_client.is_enabled.return_value = True
@@ -265,7 +266,7 @@ class TestAgentRegistryKeywords(FrappeTestCase):
 
     def test_get_all_routing_keywords(self):
         """Test getting all routing keywords from registry"""
-        from insights.agents import AgentRegistry
+        from insights.agents.registry import AgentRegistry
 
         keywords = AgentRegistry.get_all_routing_keywords()
         self.assertIsInstance(keywords, dict)

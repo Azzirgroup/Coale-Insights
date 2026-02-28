@@ -5,9 +5,13 @@
 		</div>
 
 		<div class="flex h-full flex-1 flex-col overflow-auto">
-			<Suspense>
-				<RouterView />
-			</Suspense>
+			<RouterView v-slot="{ Component }">
+				<Suspense>
+					<KeepAlive :include="cachedViews">
+						<component :is="Component" />
+					</KeepAlive>
+				</Suspense>
+			</RouterView>
 		</div>
 
 		<template>
@@ -34,6 +38,23 @@ import { createToast } from './helpers/toasts.ts'
 import session from './session'
 import telemetry from './telemetry.ts'
 import router from '@/router.ts'
+
+const cachedViews = [
+	'SalesIntelligence',
+	'RiskIntelligence',
+	'InventoryIntelligence',
+	'ProcurementIntelligence',
+	'FinancialIntelligence',
+	'CustomerIntelligence',
+	'TaxIntelligence',
+	'StrategicFinanceIntelligence',
+	'ManufacturingIntelligence',
+	'MarketingCRMIntelligence',
+	'HRIntelligence',
+	'ESGIntelligence',
+	'ExecutiveDashboard',
+	'BoardPresentationMode',
+]
 
 const route = useRoute()
 const hideSidebar = ref(false)

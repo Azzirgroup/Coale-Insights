@@ -193,6 +193,7 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ name: 'StrategicFinanceIntelligence' })
 import { ref, onMounted, computed, markRaw } from 'vue'
 import { useRouter } from 'vue-router'
 import { createResource } from 'frappe-ui'

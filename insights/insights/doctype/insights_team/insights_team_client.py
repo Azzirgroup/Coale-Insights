@@ -4,7 +4,7 @@
 import frappe
 from frappe.utils.user import get_users_with_role
 
-from insights import notify
+from insights.utils import notify
 from insights.decorators import check_permission, check_role
 
 

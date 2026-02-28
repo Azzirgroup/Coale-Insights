@@ -8,7 +8,8 @@ Specialized AI agent for Kenya Corporate Tax dashboard insights
 
 from typing import Dict, List, Optional
 
-from insights.agents import BaseIntelligenceAgent, AgentRegistry
+from insights.agents.base import BaseIntelligenceAgent
+from insights.agents.registry import AgentRegistry
 
 
 @AgentRegistry.register("Tax")

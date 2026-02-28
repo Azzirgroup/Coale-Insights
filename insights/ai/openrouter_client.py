@@ -31,9 +31,17 @@ def _safe_log_error(message: str, title: str = "AI Analytics"):
 
 
 class OpenRouterClient:
-    """OpenRouter API client with queuing, fallback, and caching"""
-    
+    """OpenRouter API client with queuing, fallback, and caching.
+
+    Implements BaseAIProvider interface while maintaining backward compatibility.
+    """
+
+    # Import-safe: avoid circular import at class level
+    # BaseAIProvider methods are duck-typed via the same method signatures
+
     BASE_URL = "https://openrouter.ai/api/v1"
+
+    provider_name = "OpenRouter"
     
     # Free models (prioritized) - updated Jul 2025
     FREE_MODELS = [
@@ -361,6 +369,48 @@ Format your response with clear sections using markdown."""
         Compatibility method used by ESG agent."""
         return self.is_enabled() and self.check_quota()
 
+    def get_available_models(self) -> List[str]:
+        """Get ordered list of models to try (BaseAIProvider interface)"""
+        models = [self.primary_model, self.fallback_model]
+        for m in self.FREE_MODELS + self.PAID_MODELS:
+            if m not in models:
+                models.append(m)
+        return models
+
+    def make_request(self, messages: List[Dict], model: str,
+                     temperature: float = 0.7, max_tokens: int = 2000) -> Optional[Dict]:
+        """BaseAIProvider interface - delegates to _make_request"""
+        return self._make_request(messages, model, temperature)
+
+    def test_connection(self) -> Dict[str, Any]:
+        """Test the OpenRouter API connection"""
+        try:
+            if not self.api_key:
+                return {"success": False, "error": "OpenRouter API key not configured"}
+
+            response = requests.get(
+                f"{self.BASE_URL}/auth/key",
+                headers=self._get_headers(),
+                timeout=10
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                return {
+                    "success": True,
+                    "message": "OpenRouter connection successful",
+                    "data": {
+                        "credits": data.get("data", {}).get("credits", 0),
+                        "usage": data.get("data", {}).get("usage", 0)
+                    }
+                }
+            else:
+                return {"success": False, "error": f"API returned status {response.status_code}"}
+        except requests.exceptions.Timeout:
+            return {"success": False, "error": "Connection timed out"}
+        except Exception as e:
+            return {"success": False, "error": f"Connection failed: {str(e)[:200]}"}
+
     def get_insights(self, prompt: str = None, query: str = None, context: str = None, **kwargs) -> Dict[str, Any]:
         """
         Generate insights from a prompt with optional context.
@@ -499,12 +549,20 @@ def chat_with_ai(prompt: str, context: str = None) -> Dict[str, Any]:
 def get_ai_status() -> Dict[str, Any]:
     """Get AI analytics status and quota information"""
     settings = frappe.get_single("Insights Settings")
-    
+    provider = getattr(settings, "ai_provider", "openrouter")
+
+    configured = False
+    if provider == "openrouter":
+        configured = bool(settings.openrouter_api_key)
+    elif provider == "ollama":
+        configured = bool(getattr(settings, "ollama_base_url", ""))
+
     return {
         "enabled": bool(settings.enable_ai_analytics),
-        "configured": bool(settings.openrouter_api_key),
-        "primary_model": settings.ai_model,
-        "fallback_model": settings.ai_model_fallback,
+        "configured": configured,
+        "provider": provider,
+        "primary_model": settings.ai_model if provider == "openrouter" else getattr(settings, "ollama_model", ""),
+        "fallback_model": settings.ai_model_fallback if provider == "openrouter" else "",
         "daily_quota": cint(settings.daily_ai_quota) or 100,
         "quota_used": cint(settings.ai_quota_used) or 0,
         "quota_remaining": max(0, (cint(settings.daily_ai_quota) or 100) - (cint(settings.ai_quota_used) or 0)),
@@ -514,52 +572,18 @@ def get_ai_status() -> Dict[str, Any]:
 
 
 @frappe.whitelist()
-def test_connection() -> Dict[str, Any]:
-    """Test the OpenRouter API connection"""
+def test_connection(provider: str = None) -> Dict[str, Any]:
+    """Test AI provider connection. Pass provider to test a specific one
+    without needing to save settings first."""
     try:
-        client = OpenRouterClient()
-        
-        if not client.api_key:
-            return {
-                "success": False,
-                "error": "OpenRouter API key not configured"
-            }
-        
-        # Make a simple test request
-        response = requests.get(
-            f"{client.BASE_URL}/auth/key",
-            headers=client._get_headers(),
-            timeout=10
-        )
-        
-        if response.status_code == 200:
-            data = response.json()
-            return {
-                "success": True,
-                "message": "Connection successful",
-                "data": {
-                    "credits": data.get("data", {}).get("credits", 0),
-                    "usage": data.get("data", {}).get("usage", 0)
-                }
-            }
+        from insights.ai.provider_factory import AIProviderFactory
+        if provider and provider in ("openrouter", "ollama"):
+            client = AIProviderFactory.get_provider(provider)
         else:
-            return {
-                "success": False,
-                "error": f"API returned status {response.status_code}: {response.text}"
-            }
-            
-    except requests.exceptions.Timeout:
-        return {
-            "success": False,
-            "error": "Connection timed out. Please try again."
-        }
-    except requests.exceptions.RequestException as e:
-        return {
-            "success": False,
-            "error": f"Connection failed: {str(e)}"
-        }
+            client = AIProviderFactory.get_client()
+        return client.test_connection()
     except Exception as e:
         return {
             "success": False,
-            "error": f"Unexpected error: {str(e)}"
+            "error": f"Connection test failed: {str(e)}"
         }

@@ -22,13 +22,15 @@ function makeSettings() {
 			apply_user_permissions: false,
 			// AI Analytics fields
 			enable_ai_analytics: false,
+			ai_provider: 'openrouter',
 			openrouter_api_key: '',
-			ai_model: 'meta-llama/llama-3.1-8b-instruct:free',
-			ai_model_fallback: 'mistralai/mistral-7b-instruct:free',
+			ai_model: 'meta-llama/llama-3.3-70b-instruct:free',
+			ai_model_fallback: 'google/gemini-2.0-flash-exp:free',
+			ollama_base_url: 'http://localhost:11434',
+			ollama_model: 'llama3.1',
 			refresh_schedule: 'Daily',
 			daily_ai_quota: 100,
 			ai_quota_used: 0,
-			ai_quota_reset_date: '',
 			last_ai_refresh: '',
 		},
 		disableLocalStorage: true,
@@ -58,12 +60,14 @@ type InsightsSettings = {
 	apply_user_permissions: boolean
 	// AI Analytics fields
 	enable_ai_analytics: boolean
+	ai_provider: string
 	openrouter_api_key: string
 	ai_model: string
 	ai_model_fallback: string
+	ollama_base_url: string
+	ollama_model: string
 	refresh_schedule: string
 	daily_ai_quota: number
 	ai_quota_used: number
-	ai_quota_reset_date: string
 	last_ai_refresh: string
 }

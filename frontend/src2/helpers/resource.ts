@@ -16,11 +16,11 @@ type Document = {
 }
 
 const DEFAULT_API = {
-	get: 'insights.api.get_doc',
+	get: 'insights.api.documents.get_doc',
 	insert: 'frappe.client.insert',
 	update: 'frappe.client.set_value',
 	delete: 'frappe.client.delete',
-	call: 'insights.api.run_doc_method',
+	call: 'insights.api.documents.run_doc_method',
 }
 
 type ApiMethods = typeof DEFAULT_API

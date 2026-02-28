@@ -1,4 +1,5 @@
 <script setup lang="ts">
+defineOptions({ name: 'HRIntelligence' })
 import { call } from 'frappe-ui'
 import { apiCall } from '../helpers/api'
 import { 

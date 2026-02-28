@@ -11,7 +11,7 @@ from frappe.utils.background_jobs import is_job_enqueued
 from ibis import BaseBackend, _
 from ibis.expr.types import Expr
 
-from insights import create_toast
+from insights.utils import create_toast
 from insights.utils import InsightsDataSourcev3, InsightsTablev3
 
 WAREHOUSE_DB_NAME = "insights.duckdb"

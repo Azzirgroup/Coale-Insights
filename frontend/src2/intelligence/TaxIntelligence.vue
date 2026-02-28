@@ -624,6 +624,7 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ name: 'TaxIntelligence' })
 import { ref, computed, onMounted } from 'vue'
 import { Button } from 'frappe-ui'
 import { useRouter } from 'vue-router'
