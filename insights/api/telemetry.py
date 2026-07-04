@@ -5,7 +5,16 @@ from contextlib import suppress
 
 import frappe
 from frappe.utils.data import date_diff
-from frappe.utils.telemetry import POSTHOG_HOST_FIELD, POSTHOG_PROJECT_FIELD
+
+try:
+    # Available on newer Frappe versions
+    from frappe.utils.telemetry import POSTHOG_HOST_FIELD, POSTHOG_PROJECT_FIELD
+except ImportError:
+    # Older Frappe (e.g. v16) does not export these constants; fall back to the
+    # site_config keys they represent so the app stays version-compatible.
+    POSTHOG_HOST_FIELD = "posthog_host"
+    POSTHOG_PROJECT_FIELD = "posthog_project_id"
+
 from posthog import Posthog
 
 from insights.decorators import insights_whitelist
