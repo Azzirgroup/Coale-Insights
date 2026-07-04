@@ -485,7 +485,7 @@ class TaxIntelligence(BaseMLModel):
                 a.name,
                 a.asset_name,
                 a.asset_category,
-                a.gross_purchase_amount,
+                a.purchase_amount AS gross_purchase_amount,
                 a.purchase_date,
                 a.opening_accumulated_depreciation,
                 a.status,

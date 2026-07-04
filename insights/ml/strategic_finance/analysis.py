@@ -313,7 +313,7 @@ def analyze_capital_planning(intelligence) -> Dict[str, Any]:
             a.name,
             a.asset_name,
             a.asset_category,
-            a.gross_purchase_amount,
+            a.purchase_amount AS gross_purchase_amount,
             a.purchase_date,
             a.available_for_use_date,
             a.status,
@@ -331,7 +331,7 @@ def analyze_capital_planning(intelligence) -> Dict[str, Any]:
         WHERE a.company = %s
             AND a.docstatus = 1
             AND a.status NOT IN ('Sold', 'Scrapped')
-        ORDER BY a.gross_purchase_amount DESC
+        ORDER BY a.purchase_amount DESC
     """, (intelligence.company,), as_dict=True)
 
     # Summarize by category
@@ -367,7 +367,7 @@ def analyze_capital_planning(intelligence) -> Dict[str, Any]:
     # CAPEX this year
     fy_start = intelligence.fiscal_year["start_date"]
     ytd_capex = frappe.db.sql("""
-        SELECT COALESCE(SUM(gross_purchase_amount), 0) as amount
+        SELECT COALESCE(SUM(purchase_amount), 0) as amount
         FROM `tabAsset`
         WHERE company = %s
             AND docstatus = 1
@@ -377,7 +377,7 @@ def analyze_capital_planning(intelligence) -> Dict[str, Any]:
     # Prior year CAPEX for comparison
     prior_fy_start = (datetime.strptime(fy_start, '%Y-%m-%d') - timedelta(days=365)).strftime('%Y-%m-%d')
     prior_capex = frappe.db.sql("""
-        SELECT COALESCE(SUM(gross_purchase_amount), 0) as amount
+        SELECT COALESCE(SUM(purchase_amount), 0) as amount
         FROM `tabAsset`
         WHERE company = %s
             AND docstatus = 1

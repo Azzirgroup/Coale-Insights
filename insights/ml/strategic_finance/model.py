@@ -60,7 +60,7 @@ class StrategicFinanceIntelligence(BaseMLModel):
         )
         self.base_currency = (
             frappe.db.get_value("Company", self.company, "default_currency")
-            or frappe.db.get_single_value("System Settings", "default_currency")
+            or frappe.db.get_default("currency")
             or "USD"
         )
         self.fiscal_year = get_current_fiscal_year(self)
