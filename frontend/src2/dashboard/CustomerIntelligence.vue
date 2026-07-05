@@ -1,7 +1,7 @@
 <script setup lang="ts">
 defineOptions({ name: 'CustomerIntelligence' })
 import { Breadcrumbs, FormControl } from 'frappe-ui'
-import { apiCall } from '../helpers/api'
+import { apiCall, apiCallPolling } from '../helpers/api'
 import { 
   RefreshCcw, Loader2, TrendingUp, AlertTriangle, Users, DollarSign, 
   Target, Heart, MapPin, BarChart3, PieChart, Activity, Zap, 
@@ -76,27 +76,18 @@ async function loadData(refresh = false) {
   error.value = null
   
   try {
-    const result = await apiCall('insights.api.ml.customer_intelligence', {
-      refresh: refresh,
-      date_filter: dateFilter.value
-    })
+    const result = await apiCallPolling(
+      'insights.api.ml.customer_intelligence',
+      'insights.api.ml.customer_intelligence_status',
+      { refresh: refresh, date_filter: dateFilter.value },
+    )
 
-    if (result?.status === 'queued') {
-      createToast({
-        title: 'Processing',
-        message: result.message || 'Analysis queued for processing',
-        variant: 'info'
-      })
-      // Poll for results
-      setTimeout(() => checkJobStatus(), 5000)
-    } else {
-      data.value = result
-      createToast({
-        title: 'Data Loaded',
-        message: `Analyzed ${result?.summary?.total_customers || 0} customers`,
-        variant: 'success'
-      })
-    }
+    data.value = result
+    createToast({
+      title: 'Data Loaded',
+      message: `Analyzed ${(result as any)?.summary?.total_customers || 0} customers`,
+      variant: 'success'
+    })
   } catch (e: any) {
     error.value = e.message || 'Failed to load customer intelligence'
   } finally {

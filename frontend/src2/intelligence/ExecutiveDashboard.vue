@@ -279,7 +279,7 @@ import {
   UserCog,
   Factory
 } from 'lucide-vue-next'
-import { apiCall } from '../helpers/api'
+import { apiCall, apiCallPolling } from '../helpers/api'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
@@ -315,9 +315,11 @@ async function loadData() {
   error.value = null
 
   try {
-    data.value = await apiCall('insights.api.ml.get_executive_summary', {
-      period: selectedPeriod.value
-    })
+    data.value = await apiCallPolling(
+      'insights.api.ml.get_executive_summary',
+      'insights.api.ml.get_executive_summary_status',
+      { period: selectedPeriod.value },
+    )
     lastUpdated.value = new Date()
 
     // Read currency from backend response

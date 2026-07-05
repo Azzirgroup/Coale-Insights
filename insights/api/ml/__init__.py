@@ -39,6 +39,7 @@ from insights.api.ml.sales import (  # noqa: F401
     sales_forecast,
     get_forecast_chart_data,
     sales_intelligence,
+    sales_intelligence_status,
     payment_mix,
     sales_rep_performance,
     revenue_breakdown,
@@ -126,6 +127,7 @@ from insights.api.ml.esg import (  # noqa: F401
 # Executive Intelligence
 from insights.api.ml.executive import (  # noqa: F401
     get_executive_summary,
+    get_executive_summary_status,
     get_business_health_score,
     get_executive_kpis,
     get_executive_alerts,

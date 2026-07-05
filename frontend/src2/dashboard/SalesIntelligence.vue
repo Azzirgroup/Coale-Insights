@@ -1,7 +1,7 @@
 <script setup lang="ts">
 defineOptions({ name: 'SalesIntelligence' })
 import { Breadcrumbs } from 'frappe-ui'
-import { apiCall } from '../helpers/api'
+import { apiCall, apiCallPolling } from '../helpers/api'
 import { 
   RefreshCcw, Loader2, TrendingUp, TrendingDown, DollarSign, 
   CreditCard, Banknote, Users, Package, BarChart3, PieChart, 
@@ -64,10 +64,11 @@ async function loadData(refresh = false) {
   error.value = null
   
   try {
-    const result = await apiCall('insights.api.ml.sales_intelligence', {
-      refresh: refresh,
-      date_filter: dateRange.value
-    })
+    const result = await apiCallPolling(
+      'insights.api.ml.sales_intelligence',
+      'insights.api.ml.sales_intelligence_status',
+      { refresh: refresh, date_filter: dateRange.value },
+    )
 
     data.value = result
     createToast({

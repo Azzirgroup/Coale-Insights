@@ -12,12 +12,32 @@ from insights.api.response import success, error
 
 @frappe.whitelist()
 def get_executive_summary(period: str = "YTD") -> Dict[str, Any]:
-    """Get executive summary"""
+    """Get executive summary.
+
+    Instantiating every intelligence sub-module and running their queries in one
+    web request is the heaviest endpoint in the app and gets killed (502) on
+    resource-limited hosts. Run it in a background job and poll
+    get_executive_summary_status.
+    """
     try:
-        from insights.ml.executive_intelligence import ExecutiveIntelligence
-        model = ExecutiveIntelligence()
-        result = model.get_executive_summary(period)
-        return success(result)
+        from insights.api.ml.async_runner import get_or_enqueue
+
+        return get_or_enqueue(
+            "executive_summary",
+            "executive_summary",
+            {"period": period},
+        )
+    except Exception as e:
+        return error(str(e))
+
+
+@frappe.whitelist()
+def get_executive_summary_status() -> Dict[str, Any]:
+    """Get executive summary processing status"""
+    try:
+        from insights.api.ml.async_runner import job_status
+
+        return job_status("executive_summary")
     except Exception as e:
         return error(str(e))
 

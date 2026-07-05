@@ -40,12 +40,31 @@ def get_forecast_chart_data() -> Dict[str, Any]:
 
 @frappe.whitelist()
 def sales_intelligence(refresh: bool = False, date_filter: str = '12m') -> Dict[str, Any]:
-    """Get comprehensive sales intelligence"""
+    """Get comprehensive sales intelligence.
+
+    Runs in a background job (returns {status: 'queued'} on a cache miss) so the
+    heavy computation never times out the web worker. Poll sales_intelligence_status.
+    """
     try:
-        from insights.ml.sales_intelligence import SalesIntelligence
-        model = SalesIntelligence(date_filter=date_filter)
-        result = model.train()
-        return success(result)
+        from insights.api.ml.async_runner import get_or_enqueue
+
+        return get_or_enqueue(
+            "sales_intelligence",
+            "sales_intelligence",
+            {"date_filter": date_filter},
+            refresh=bool(refresh),
+        )
+    except Exception as e:
+        return error(str(e))
+
+
+@frappe.whitelist()
+def sales_intelligence_status() -> Dict[str, Any]:
+    """Get sales intelligence processing status"""
+    try:
+        from insights.api.ml.async_runner import job_status
+
+        return job_status("sales_intelligence")
     except Exception as e:
         return error(str(e))
 

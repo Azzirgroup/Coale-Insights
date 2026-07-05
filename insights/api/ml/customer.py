@@ -57,13 +57,20 @@ def get_segment_summary() -> Dict[str, Any]:
 
 @frappe.whitelist()
 def customer_intelligence(refresh: bool = False, async_mode: bool = False, date_filter: str = '12m') -> Dict[str, Any]:
-    """Get comprehensive customer intelligence"""
-    try:
-        from insights.ml.customer_intelligence import CustomerIntelligence
+    """Get comprehensive customer intelligence.
 
-        model = CustomerIntelligence()
-        result = model.predict()
-        return success(result)
+    Runs in a background job (returns {status: 'queued'} on a cache miss) so the
+    heavy computation never times out the web worker. Poll customer_intelligence_status.
+    """
+    try:
+        from insights.api.ml.async_runner import get_or_enqueue
+
+        return get_or_enqueue(
+            "customer_intelligence",
+            "customer_intelligence",
+            {"date_filter": date_filter},
+            refresh=bool(refresh),
+        )
     except Exception as e:
         return error(str(e))
 
@@ -72,8 +79,9 @@ def customer_intelligence(refresh: bool = False, async_mode: bool = False, date_
 def customer_intelligence_status() -> Dict[str, Any]:
     """Get customer intelligence processing status"""
     try:
-        # Implementation would check async processing status
-        return success({"status": "completed", "last_run": None})
+        from insights.api.ml.async_runner import job_status
+
+        return job_status("customer_intelligence")
     except Exception as e:
         return error(str(e))
 

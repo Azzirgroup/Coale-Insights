@@ -32,6 +32,46 @@ export async function apiCall<T>(method: string, params?: Record<string, any>): 
   return payload as T
 }
 
+/**
+ * For heavy endpoints that run in a background job: call `method`, and if it
+ * responds with {status: 'queued'}, poll `statusMethod` until the result is
+ * ready. This keeps the request off the web worker so it never times out (502).
+ * The returned promise stays pending (page keeps its loading state) until the
+ * analysis completes, fails, or the overall timeout is hit.
+ */
+export async function apiCallPolling<T>(
+  method: string,
+  statusMethod: string,
+  params?: Record<string, any>,
+  opts: { intervalMs?: number; timeoutMs?: number } = {},
+): Promise<T> {
+  const intervalMs = opts.intervalMs ?? 4000
+  const timeoutMs = opts.timeoutMs ?? 5 * 60 * 1000
+
+  const first: any = await apiCall(method, params)
+  if (!first || first.status !== 'queued') {
+    return first as T
+  }
+
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, intervalMs))
+    const status: any = await apiCall(statusMethod)
+    if (status?.status === 'completed') {
+      const result = status.result
+      if (result && typeof result === 'object' && result.status === 'error') {
+        throw new Error(result.message || 'No data available')
+      }
+      return result as T
+    }
+    if (status?.status === 'failed') {
+      throw new Error(status.message || 'Analysis failed. Please try again.')
+    }
+    // 'processing' or a transient 'not_found' right after enqueue -> keep polling
+  }
+  throw new Error('Analysis is taking longer than expected. Please try again.')
+}
+
 function normaliseError(e: any): string {
   // frappe-ui failed while parsing a non-JSON error body -> its own TypeError.
   if (e instanceof TypeError && /exc_type/.test(e?.message || '')) {
