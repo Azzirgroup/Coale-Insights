@@ -23,10 +23,15 @@ from insights.api.response import success
 
 RESULT_PREFIX = "insights_ml_result::"
 STATUS_PREFIX = "insights_ml_status::"
+STARTED_PREFIX = "insights_ml_started::"  # cache_key -> enqueue timestamp
 POINTER_PREFIX = "insights_ml_pointer::"  # per user+endpoint -> active cache_key
 
 DEFAULT_TTL_HOURS = 6
 JOB_TIMEOUT = 1500  # seconds; runs on the "long" queue
+# If a job is still "processing" after this long, assume the worker died / is
+# unavailable (OOM, no worker for the queue, etc.) and report a failure so the
+# UI stops spinning instead of polling forever.
+STALL_SECONDS = 180
 
 
 def _company():
@@ -71,6 +76,11 @@ def get_or_enqueue(endpoint: str, kind: str, kwargs: dict = None, refresh: bool 
             return {"status": "queued", "message": "Analysis is being processed"}
 
     frappe.cache.set_value(status_key, "processing", expires_in_sec=JOB_TIMEOUT)
+    frappe.cache.set_value(
+        STARTED_PREFIX + cache_key,
+        frappe.utils.now_datetime().isoformat(),
+        expires_in_sec=JOB_TIMEOUT,
+    )
     frappe.enqueue(
         "insights.api.ml.async_runner.run_job",
         queue="long",
@@ -132,10 +142,38 @@ def job_status(endpoint: str):
 
     status = frappe.cache.get_value(STATUS_PREFIX + cache_key)
     if status == "failed":
+        _clear(cache_key)  # let the next call re-enqueue a fresh job
         return {
             "status": "failed",
             "message": "Analysis failed. Please try again.",
         }
     if status == "processing":
+        # If it has been "processing" too long, the worker likely died (OOM) or
+        # no worker is servicing the queue. Report a failure so the UI can react,
+        # and clear the flags so a retry starts a fresh job.
+        started = frappe.cache.get_value(STARTED_PREFIX + cache_key)
+        if started:
+            try:
+                elapsed = frappe.utils.time_diff_in_seconds(
+                    frappe.utils.now_datetime(), started
+                )
+                if elapsed > STALL_SECONDS:
+                    _clear(cache_key)
+                    return {
+                        "status": "failed",
+                        "message": (
+                            "The analysis did not finish in time. The background "
+                            "worker may be unavailable or ran out of memory. "
+                            "Please try again."
+                        ),
+                    }
+            except Exception:
+                pass
         return {"status": "processing"}
     return {"status": "not_found"}
+
+
+def _clear(cache_key: str):
+    """Drop the status/started flags so the next request enqueues a fresh job."""
+    frappe.cache.delete_value(STATUS_PREFIX + cache_key)
+    frappe.cache.delete_value(STARTED_PREFIX + cache_key)
