@@ -8,6 +8,11 @@ requires-python = ">=3.10"
 readme = "README.md"
 dynamic = ["version"]
 dependencies = [
+    # numpy MUST be pinned compatible with pandas 2.2.x. Without this, the build
+    # installs the newest numpy (2.5+), whose C ABI is incompatible with pandas
+    # 2.2 — pandas' datetime code then SEGFAULTS at runtime, silently killing the
+    # background worker so dashboards hang forever ("did not finish in time").
+    "numpy>=1.26.4,<2.2",
     "pandas~=2.2.2",
     "SQLAlchemy>=2.0.36",
     "python-telegram-bot==21.4",
