@@ -8,12 +8,13 @@ requires-python = ">=3.10"
 readme = "README.md"
 dynamic = ["version"]
 dependencies = [
-    # numpy MUST be pinned compatible with pandas 2.2.x. Without this, the build
-    # installs the newest numpy (2.5+), whose C ABI is incompatible with pandas
-    # 2.2 — pandas' datetime code then SEGFAULTS at runtime, silently killing the
+    # frappe develop (v17) runs on Python 3.14, which has NO working pandas 2.2.x
+    # wheels — pandas' datetime C code SEGFAULTS there, silently killing the
     # background worker so dashboards hang forever ("did not finish in time").
+    # pandas 2.3.3+ ships working Python 3.14 wheels (verified). numpy is kept in
+    # a range proven compatible. ibis-framework allows pandas <3.
     "numpy>=1.26.4,<2.2",
-    "pandas~=2.2.2",
+    "pandas>=2.3.3,<2.4",
     "SQLAlchemy>=2.0.36",
     "python-telegram-bot==21.4",
     "duckdb~=1.3.0",
