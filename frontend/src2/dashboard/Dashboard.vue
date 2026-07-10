@@ -132,7 +132,7 @@ async function trainMLModels() {
 // Format numbers for display
 function formatNumber(value: number, type: string = 'number'): string {
 	if (type === 'currency') {
-		return new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES', maximumFractionDigits: 0 }).format(value)
+		return new Intl.NumberFormat('en-KE', { style: 'currency', currency: (window['__insightsCurrency'] || 'KES'), maximumFractionDigits: 0 }).format(value)
 	}
 	return new Intl.NumberFormat('en-KE').format(value)
 }

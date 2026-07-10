@@ -118,10 +118,10 @@ function loadRecentCustomers() {
 
 // Format currency
 function formatCurrency(value: number | undefined): string {
-  if (value === undefined || value === null) return 'KES 0'
+  if (value === undefined || value === null) return `${window['__insightsCurrency'] || 'KES'} 0`
   return new Intl.NumberFormat('en-KE', {
     style: 'currency',
-    currency: 'KES',
+    currency: (window['__insightsCurrency'] || 'KES'),
     minimumFractionDigits: 0,
     maximumFractionDigits: 0
   }).format(value)

@@ -1088,10 +1088,10 @@ watch(dateFilter, () => {
 
 // Formatting helpers
 const formatCurrency = (value: number | undefined) => {
-  if (value === undefined || value === null) return 'KES 0'
+  if (value === undefined || value === null) return `${window['__insightsCurrency'] || 'KES'} 0`
   return new Intl.NumberFormat('en-KE', {
     style: 'currency',
-    currency: 'KES',
+    currency: (window['__insightsCurrency'] || 'KES'),
     minimumFractionDigits: 0,
     maximumFractionDigits: 0
   }).format(value)
@@ -1347,15 +1347,15 @@ const getMonthMargin = (month: any) => {
 
 // Format currency in compact form (e.g., 1.2M, 500K)
 const formatCompactCurrency = (value: number | undefined) => {
-  if (value === undefined || value === null) return 'KES 0'
+  if (value === undefined || value === null) return `${window['__insightsCurrency'] || 'KES'} 0`
   const absValue = Math.abs(value)
   const sign = value < 0 ? '-' : ''
   if (absValue >= 1000000) {
-    return `${sign}KES ${(absValue / 1000000).toFixed(1)}M`
+    return `${sign}${window['__insightsCurrency'] || 'KES'} ${(absValue / 1000000).toFixed(1)}M`
   } else if (absValue >= 1000) {
-    return `${sign}KES ${(absValue / 1000).toFixed(0)}K`
+    return `${sign}${window['__insightsCurrency'] || 'KES'} ${(absValue / 1000).toFixed(0)}K`
   }
-  return `${sign}KES ${absValue.toFixed(0)}`
+  return `${sign}${window['__insightsCurrency'] || 'KES'} ${absValue.toFixed(0)}`
 }
 
 // Handle navigation to other dashboards from chat suggestions

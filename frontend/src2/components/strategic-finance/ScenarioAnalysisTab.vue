@@ -375,10 +375,10 @@ const revenueChanges = [-30, -20, -10, 0, 10, 20, 30]
 const expenseChanges = [-20, -10, 0, 10, 20]
 
 const formatCurrency = (value: number) => {
-  if (value === null || value === undefined) return 'KES 0'
+  if (value === null || value === undefined) return `${window['__insightsCurrency'] || 'KES'} 0`
   return new Intl.NumberFormat('en-KE', {
     style: 'currency',
-    currency: 'KES',
+    currency: (window['__insightsCurrency'] || 'KES'),
     minimumFractionDigits: 0,
     maximumFractionDigits: 0
   }).format(value)

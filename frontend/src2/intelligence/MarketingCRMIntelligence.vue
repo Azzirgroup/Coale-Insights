@@ -162,10 +162,10 @@ const recommendations = computed(() => {
 
 // Helpers
 function formatCurrency(value: number) {
-  if (!value) return 'KES 0'
-  if (value >= 1000000) return `KES ${(value / 1000000).toFixed(1)}M`
-  if (value >= 1000) return `KES ${(value / 1000).toFixed(0)}K`
-  return `KES ${value.toFixed(0)}`
+  if (!value) return `${window['__insightsCurrency'] || 'KES'} 0`
+  if (value >= 1000000) return `${window['__insightsCurrency'] || 'KES'} ${(value / 1000000).toFixed(1)}M`
+  if (value >= 1000) return `${window['__insightsCurrency'] || 'KES'} ${(value / 1000).toFixed(0)}K`
+  return `${window['__insightsCurrency'] || 'KES'} ${value.toFixed(0)}`
 }
 
 function formatNumber(value: number) {

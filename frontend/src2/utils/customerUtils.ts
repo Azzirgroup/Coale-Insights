@@ -6,20 +6,20 @@
 // ─── Currency & Number Formatting ────────────────────────────────────────────
 
 export function formatCurrency(value: number | undefined | null): string {
-  if (value === undefined || value === null) return 'KES 0'
+  if (value === undefined || value === null) return `${window['__insightsCurrency'] || 'KES'} 0`
   return new Intl.NumberFormat('en-KE', {
     style: 'currency',
-    currency: 'KES',
+    currency: (window['__insightsCurrency'] || 'KES'),
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(value)
 }
 
 export function formatCurrencyCompact(value: number | undefined | null): string {
-  if (!value && value !== 0) return 'KES 0'
-  if (value >= 1_000_000) return `KES ${(value / 1_000_000).toFixed(1)}M`
-  if (value >= 1_000) return `KES ${(value / 1_000).toFixed(1)}K`
-  return `KES ${value.toFixed(0)}`
+  if (!value && value !== 0) return `${window['__insightsCurrency'] || 'KES'} 0`
+  if (value >= 1_000_000) return `${window['__insightsCurrency'] || 'KES'} ${(value / 1_000_000).toFixed(1)}M`
+  if (value >= 1_000) return `${window['__insightsCurrency'] || 'KES'} ${(value / 1_000).toFixed(1)}K`
+  return `${window['__insightsCurrency'] || 'KES'} ${value.toFixed(0)}`
 }
 
 export function formatNumber(value: number | undefined | null, decimals = 0): string {

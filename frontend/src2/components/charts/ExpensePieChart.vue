@@ -114,14 +114,14 @@ const segments = computed(() => {
 
 const formatCurrency = (value: number) => {
   if (value >= 1000000) {
-    return `KES ${(value / 1000000).toFixed(1)}M`
+    return `${window['__insightsCurrency'] || 'KES'} ${(value / 1000000).toFixed(1)}M`
   }
   if (value >= 1000) {
-    return `KES ${(value / 1000).toFixed(0)}K`
+    return `${window['__insightsCurrency'] || 'KES'} ${(value / 1000).toFixed(0)}K`
   }
   return new Intl.NumberFormat('en-KE', {
     style: 'currency',
-    currency: 'KES',
+    currency: (window['__insightsCurrency'] || 'KES'),
     minimumFractionDigits: 0
   }).format(value)
 }

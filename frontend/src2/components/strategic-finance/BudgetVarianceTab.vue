@@ -547,10 +547,10 @@ const exportReport = () => {
 
 // Utility functions
 const formatCurrency = (value) => {
-  if (value === null || value === undefined) return 'KES 0'
-  if (value >= 1000000) return `KES ${(value / 1000000).toFixed(1)}M`
-  if (value >= 1000) return `KES ${(value / 1000).toFixed(0)}K`
-  return `KES ${value.toFixed(0)}`
+  if (value === null || value === undefined) return `${window['__insightsCurrency'] || 'KES'} 0`
+  if (value >= 1000000) return `${window['__insightsCurrency'] || 'KES'} ${(value / 1000000).toFixed(1)}M`
+  if (value >= 1000) return `${window['__insightsCurrency'] || 'KES'} ${(value / 1000).toFixed(0)}K`
+  return `${window['__insightsCurrency'] || 'KES'} ${value.toFixed(0)}`
 }
 
 const formatPercentage = (value) => {

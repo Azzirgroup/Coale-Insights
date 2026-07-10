@@ -580,7 +580,7 @@ const formatCurrency = (value) => {
   if (value === null || value === undefined) return '$0.00'
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'USD',
+    currency: (window['__insightsCurrency'] || 'USD'),
     minimumFractionDigits: 0,
     maximumFractionDigits: 0
   }).format(value)
