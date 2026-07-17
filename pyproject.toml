@@ -41,6 +41,14 @@ requires = ["flit_core >=3.4,<4"]
 build-backend = "flit_core.buildapi"
 
 
+# Frappe Cloud / bench reads this to check the app is compatible with the
+# bench's Frappe version before adding it. Without it, "Add app from GitHub"
+# fails with: "Could not find compatible Frappe version in pyproject.toml".
+# Covers Frappe v15, v16 and the v17 develop line.
+[tool.bench.frappe-dependencies]
+frappe = ">=15.0.0,<18.0.0"
+
+
 [tool.ruff]
 line-length = 110
 target-version = "py310"
